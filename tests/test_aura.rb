@@ -1,31 +1,16 @@
-name: Ruby CI
+# tests/test_aura.rb
+require "minitest/autorun"
+require_relative "../lib/aura"
 
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        ruby-version: ['3.2', '3.3']
-
-    steps:
-    - uses: actions/checkout@v4
-    - name: Set up Ruby
-      uses: ruby/setup-ruby@v1
-      with:
-        ruby-version: ${{ matrix.ruby-version }}
-        bundler-cache: true
-
-    - name: Install dependencies
-      run: bundle install
-
-    - name: Run tests
-      run: bundle exec minitest tests/test_aura.rb
-
-    - name: Build gem (sanity)
-      run: gem build aura-lang.gemspec
+class TestAura < Minitest::Test
+  def test_parse_hello_example
+    source = <<~AURA
+      route "/hello" get do
+        output greeting "Hello from Aura!"
+      end
+      run web on port: 3000
+    AURA
+    ast = Aura::Parser.new.parse(source)
+    assert ast
+  end
+end
