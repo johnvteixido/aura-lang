@@ -1,15 +1,31 @@
-require "minitest/autorun"
-require "aura"
+name: Ruby CI
 
-class TestAura < Minitest::Test
-  def test_parse_simple
-    source = <<~AURA
-      model test neural_network do
-        input shape(1)
-        output units: 1, activation: :relu
-      end
-    AURA
-    ast = Aura.parse(source)
-    assert ast
-  end
-end
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        ruby-version: ['3.2', '3.3']
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: ${{ matrix.ruby-version }}
+        bundler-cache: true
+
+    - name: Install dependencies
+      run: bundle install
+
+    - name: Run tests
+      run: bundle exec minitest tests/test_aura.rb
+
+    - name: Build gem (sanity)
+      run: gem build aura-lang.gemspec
