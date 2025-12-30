@@ -26,7 +26,7 @@ module Aura
 
     # Full model
     rule(name: simple(:name), model_line: sequence(:lines)) {
-      # ... (existing)
+      # 
       seq = Torch::NN::Sequential.new
       layers.zip(@activations).each do |layer, act|
         seq << layer
@@ -38,7 +38,7 @@ module Aura
   end
 
   class Parser < Parslet::Parser
-    # (Keep the same grammar as before, but simplified for MVP)
+    
     rule(:space?)     { str(" ").repeat }
     rule(:newline)    { (str("\n") | str("\r\n")).repeat(1) }
 
@@ -111,7 +111,7 @@ module Aura
     transformer.instance_variable_set(:@activations, [])
     transformer.apply(ast)
 
-    # Generate Ruby code
+    # 
     <<~RUBY
       require "torch"
       require "sinatra"
