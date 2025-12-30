@@ -20,9 +20,9 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby-version }}
-          bundler-cache: false  # Disable buggy cache to avoid gem install failures
+          bundler-cache: false  # Avoids the buggy auto-install
 
-      - name: Install Bundler
+      - name: Install Bundler manually
         run: gem install bundler --no-document
 
       - name: Install dependencies
