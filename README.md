@@ -170,4 +170,4 @@ MIT License. See [LICENSE](LICENSE) for details.
 - Torch-rb for ML power.
 - You, for checking out Aura! 🌟
 
-Questions? Open an issue or LinkedIn @johnvteixido (assuming your handle). Let's build the future of AI coding together!
+Questions? Open an issue or LinkedIn @johnvteixido. Let's build the future of AI coding together!
