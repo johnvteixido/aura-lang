@@ -1,0 +1,2 @@
+bundle install
+bin/aura run examples/hello.aura
