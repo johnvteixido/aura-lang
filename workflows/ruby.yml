@@ -14,21 +14,22 @@ jobs:
         ruby-version: ['3.2', '3.3']
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Ruby
-      uses: ruby/setup-ruby@v1
-      with:
-        ruby-version: ${{ matrix.ruby-version }}
-        bundler-cache: false  # Disable cache to avoid the bug
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby-version }}
+          bundler-cache: false  # Disable buggy cache to avoid gem install failures
 
-    - name: Install dependencies
-      run: |
-        gem install bundler
-        bundle install --jobs 4 --retry 3
+      - name: Install Bundler
+        run: gem install bundler --no-document
 
-    - name: Run tests
-      run: bundle exec minitest tests/test_aura.rb
+      - name: Install dependencies
+        run: bundle install --jobs 4 --retry 3
 
-    - name: Build gem (sanity check)
-      run: gem build aura-lang.gemspec
+      - name: Run tests
+        run: bundle exec minitest tests/test_aura.rb
+
+      - name: Build gem (sanity check)
+        run: gem build aura-lang.gemspec
