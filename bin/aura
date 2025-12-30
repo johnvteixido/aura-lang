@@ -1,0 +1,29 @@
+#!/usr/bin/env ruby
+
+require "aura"
+
+if ARGV.empty?
+  puts <<~WELCOME
+    🌟 Welcome to Aura 🌟
+    A forgiving, human-friendly language for AI and fast web apps.
+
+    Usage:
+      aura run examples/hello.aura          # Run an Aura file
+      aura repl                             # Interactive mode (coming soon)
+  WELCOME
+  exit
+end
+
+command = ARGV[0]
+
+case command
+when "run"
+  filename = ARGV[1]
+  if filename && File.exist?(filename)
+    Aura.run_file(filename)
+  else
+    puts "File not found: #{filename}"
+  end
+else
+  puts "Unknown command: #{command}"
+end
