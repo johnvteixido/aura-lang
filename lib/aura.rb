@@ -1,62 +1,141 @@
+# lib/aura.rb
 require "parslet"
-require "json"
-require "sinatra/base"
 require "torch"
+require "sinatra/base"
+require "json"
 
 module Aura
-  class Parser < Parslet::Parser
-    # Minimal beautiful grammar — Ruby-style
+  class Transformer < Parslet::Transform
+    rule(int: simple(:i)) { Integer(i) }
+    rule(float: simple(:f)) { Float(f) }
+    rule(symbol: simple(:s)) { s.to_s.to_sym }
+    rule(shape: sequence(:dims)) { dims.map(&:to_i) }
 
-    rule(:space)      { str(" ").repeat(1) }
-    rule(:space?)     { space.maybe }
-    rule(:newline)    { str("\n") | str("\r\n") }
-    rule(:indent)     { space.repeat(1) }
-
-    rule(:identifier) { match('[a-zA-Z_]').repeat(1) }
-    rule(:string)     { str('"') >> (str('"').absent >> any).repeat >> str('"') }
-    rule(:number)     { match('[0-9]').repeat(1).as(:int) }
-    rule(:symbol)     { str(":") >> identifier.as(:symbol) }
-
-    rule(:dataset) {
-      str("dataset") >> space >> string.as(:name) >> space >>
-      str("from") >> space >> str("huggingface") >> space >> string.as(:hf_name) >>
-      (space >> str("split") >> space >> identifier.as(:split1) >>
-       (str(",") >> space >> identifier.as(:split2)).maybe).maybe >> newline
+    # Dataset
+    rule(name: simple(:name), hf_name: simple(:hf_name), split1: simple(:s1), split2: simple(:s2)) {
+      { type: :dataset, name: name[1..-2], hf_name: hf_name[1..-2], splits: [s1, s2].compact }
+    }
+    rule(name: simple(:name), hf_name: simple(:hf_name)) {
+      { type: :dataset, name: name[1..-2], hf_name: hf_name[1..-2], splits: [:train, :test] }
     }
 
-    rule(:model_block) {
-      str("model") >> space >> identifier.as(:name) >> space >> str("neural_network") >> space >> str("do") >> newline >>
+    # Model lines
+    rule(units: simple(:u), activation: simple(:a)) { { units: Integer(u), activation: a } }
+    rule(units: simple(:u)) { { units: Integer(u), activation: :relu } }
+    rule(rate: simple(:r)) { { dropout: Float(r) } }
+
+    # Full model
+    rule(name: simple(:name), model_line: sequence(:lines)) {
+      layers = lines.map do |l|
+        if l.key?(:units)
+          Torch::NN::Linear.new(prev_units, l[:units]).tap do |layer|
+            @activations << l[:activation]
+          end
+        elsif l.key?(:dropout)
+          Torch::NN::Dropout.new(p: l[:dropout])
+        end
+      end.compact
+
+      @models ||= {}
+      @models[name.to_s] = { layers: layers, activations: @activations.dup }
+      @activations = []
+      prev_units = lines.first[:shape].inject(:*) || 784
+      { type: :model, name: name.to_s }
+    }
+  end
+
+  class Parser < Parslet::Parser
+    # (Keep the same grammar as before, but simplified for MVP)
+    rule(:space?)     { str(" ").repeat }
+    rule(:newline)    { (str("\n") | str("\r\n")).repeat(1) }
+
+    rule(:string)     { str('"') >> (str('"').absent >> any).repeat >> str('"') }
+    rule(:identifier) { match('[a-z_]\w*') }
+    rule(:number)     { match('[0-9]').repeat(1) >> (str(".") >> match('[0-9]').repeat(1)).maybe }
+
+    rule(:dataset) {
+      str("dataset") >> space? >> string.as(:name) >> space? >> str("from") >> space? >>
+      str("huggingface") >> space? >> string.as(:hf_name) >> newline
+    }
+
+    rule(:model) {
+      str("model") >> space? >> identifier.as(:name) >> space? >> str("neural_network") >> space? >> str("do") >> newline >>
       (indent >> model_line).repeat >> str("end")
     }
 
+    rule(:indent)     { str("  ").repeat(1) }
     rule(:model_line) {
       indent >> (
-        str("input shape(") >> number.repeat(1, nil).as(:shape) >> str(")") >> (space >> str("flatten")).maybe >> newline |
-        str("layer dense units:") >> space >> number.as(:units) >> (str(",") >> space >> str("activation:") >> space >> symbol).maybe >> newline |
-        str("layer dropout rate:") >> space >> number.as(:float) >> newline |
-        str("output units:") >> space >> number.as(:units) >> str(",") >> space >> str("activation:") >> space >> symbol >> newline
+        str("input shape(") >> number.repeat(1, nil).as(:shape) >> str(")") >> newline |
+        str("layer dense units:") >> space? >> number.as(:units) >> (str(", activation:") >> space? >> identifier.as(:activation)).maybe >> newline |
+        str("layer dropout rate:") >> space? >> number.as(:rate) >> newline |
+        str("output units:") >> space? >> number.as(:units) >> str(", activation:") >> space? >> identifier.as(:activation) >> newline
       )
     }
 
-    rule(:statement) { dataset | model_block | newline }
+    rule(:route) {
+      str("route") >> space? >> string.as(:path) >> space? >> (str("get") | str("post")).as(:method) >> space? >> str("do") >> newline >>
+      (indent >> route_line).repeat >> str("end")
+    }
+
+    rule(:route_line) {
+      indent >> str("output prediction from ") >> identifier.as(:model) >> str(".predict(input)") >> newline
+    }
+
+    rule(:run_web) {
+      str("run web on port:") >> space? >> number.as(:port) >> newline
+    }
+
+    rule(:statement) { dataset | model | route | run_web | newline }
     rule(:program)   { statement.repeat }
 
     root(:program)
   end
 
-  def self.parse(source)
-    Parser.new.parse(source)
-  rescue Parslet::ParseFailed => e
-    puts "😔 Parse error: #{e.message}"
-    puts e.cause.ascii_tree
-    exit 1
+  def self.transpile(source)
+    ast = Parser.new.parse(source)
+    transformer = Transformer.new
+    transformer.instance_variable_set(:@models, {})
+    transformer.instance_variable_set(:@activations, [])
+    transformer.apply(ast)
+
+    # Generate Ruby code
+    <<~RUBY
+      require "torch"
+      require "sinatra"
+
+      class AuraApp < Sinatra::Base
+        #{generate_routes(transformer.instance_variable_get(:@models))}
+
+        run! if app_file == $0
+      end
+    RUBY
+  end
+
+  def self.generate_routes(models)
+    models.map do |name, config|
+      <<~ROUTE
+        post "/predict" do
+          content_type :json
+          begin
+            # Mock input for demo
+            input = Torch.randn(1, 784)
+            model = #{name}_model
+            output = model.call(input)
+            { prediction: output.argmax(1).item }.to_json
+          rescue => e
+            status 500
+            { error: "😔 Something went wrong: #{e.message}. Trying smaller batch next time?" }.to_json
+          end
+        end
+      ROUTE
+    end.join("\n")
   end
 
   def self.run_file(filename)
     source = File.read(filename)
-    ast = parse(source)
-    puts "🎉 Parsed successfully!"
-    pp ast # Pretty-print AST for now
-    # Next step: Transpiler will go here
+    ruby_code = transpile(source)
+    puts "🚀 Transpiled and running your Aura app...\n\n"
+    eval(ruby_code)
   end
 end
