@@ -11,11 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        ruby-version: ['3.2', '3.3']  # Test across versions
+        ruby-version: ['3.2', '3.3']
 
     steps:
     - uses: actions/checkout@v4
-    - name: Set up Ruby ${{ matrix.ruby-version }}
+    - name: Set up Ruby
       uses: ruby/setup-ruby@v1
       with:
         ruby-version: ${{ matrix.ruby-version }}
@@ -24,11 +24,8 @@ jobs:
     - name: Install dependencies
       run: bundle install
 
-    - name: Lint with RuboCop  # Optional: Add if you install rubocop
-      run: bundle exec rubocop
-
     - name: Run tests
-      run: bundle exec minitest tests/test_aura.rb  # Or rake test if using Rake
+      run: bundle exec minitest tests/test_aura.rb
 
-    - name: Build gem (sanity check)
+    - name: Build gem (sanity)
       run: gem build aura-lang.gemspec
