@@ -6,3 +6,12 @@ Inspired by the beauty of Ruby and the joy of Rails.
 
 ```aura
 #{File.read("examples/hello.aura")}
+
+Philosophy
+
+Beautiful over clever
+Forgiving over strict
+Human happiness first
+Zero boilerplate
+
+Work in progress · Join us!
