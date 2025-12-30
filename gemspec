@@ -6,7 +6,7 @@ Gem::Specification.new do |s|
   s.authors     = John V. Teixido
   s.email       = "you@example.com"
   s.files       = Dir["lib/**/*.rb", "bin/*", "examples/**/*.aura", "README.md", "LICENSE"]
-  s.homepage    = "https://github.com/yourusername/aura-lang"
+  s.homepage    = "https://github.com/johnvteixido/aura-lang"
   s.license     = "MIT"
   s.executables << "aura"
 end
