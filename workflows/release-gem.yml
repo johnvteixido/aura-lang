@@ -1,0 +1,46 @@
+name: Publish Ruby Gem
+
+on:
+  release:
+    types: [published]  # Triggers when you publish a release on GitHub
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write  # Needed for GitHub Packages (optional)
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'  # Use the latest stable Ruby
+          bundler-cache: true  # Caches gems for faster runs
+
+      - name: Install dependencies
+        run: bundle install --jobs 4 --retry 3
+
+      - name: Build gem
+        run: gem build aura-lang.gemspec
+
+      - name: Publish to RubyGems
+        run: |
+          mkdir -p $HOME/.gem
+          touch $HOME/.gem/credentials
+          chmod 0600 $HOME/.gem/credentials
+          printf -- "---\n:rubygems_api_key: %s\n" "${{ secrets.RUBYGEMS_API_KEY }}" > $HOME/.gem/credentials
+          gem push aura-lang-*.gem
+        env:
+          GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
+
+      - name: Publish to GitHub Packages (optional)
+        run: |
+          gem push --key github \
+            --host https://rubygems.pkg.github.com/${{ github.repository_owner }} \
+            aura-lang-*.gem
+        env:
+          GEM_HOST_API_KEY: ${{ secrets.GITHUB_TOKEN }}
