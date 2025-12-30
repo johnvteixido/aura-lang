@@ -1,2 +1,2 @@
 bundle install
-bin/aura run examples/hello.aura
+bin/aura run examples/mnist_classifier.aura
