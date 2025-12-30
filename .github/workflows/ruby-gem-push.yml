@@ -1,0 +1,39 @@
+name: Ruby Gem Push
+
+on:
+  release:
+    types: [published]  # Or on: push: tags: ['v*']
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.3'  # Match your Ruby version
+        bundler-cache: true
+
+    - name: Run tests  # Custom: Ensure quality before publish
+      run: bundle exec minitest tests/test_aura.rb
+
+    - name: Build gem
+      run: gem build aura-lang.gemspec
+
+    - name: Publish to RubyGems
+      run: gem push *.gem
+      env:
+        GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
+
+    - name: Publish to GitHub Packages
+      run: |
+        gem push --key github \
+        --host https://rubygems.pkg.github.com/${{ github.repository_owner }} \
+        *.gem
+      env:
+        GEM_HOST_API_KEY: ${{ secrets.GITHUB_TOKEN }}
