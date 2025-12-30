@@ -26,20 +26,13 @@ module Aura
 
     # Full model
     rule(name: simple(:name), model_line: sequence(:lines)) {
-      layers = lines.map do |l|
-        if l.key?(:units)
-          Torch::NN::Linear.new(prev_units, l[:units]).tap do |layer|
-            @activations << l[:activation]
-          end
-        elsif l.key?(:dropout)
-          Torch::NN::Dropout.new(p: l[:dropout])
-        end
-      end.compact
-
-      @models ||= {}
-      @models[name.to_s] = { layers: layers, activations: @activations.dup }
-      @activations = []
-      prev_units = lines.first[:shape].inject(:*) || 784
+      # ... (existing)
+      seq = Torch::NN::Sequential.new
+      layers.zip(@activations).each do |layer, act|
+        seq << layer
+        seq << Torch::NN.const_get(act.capitalize).new if act
+      end
+      @models[name.to_s] = seq
       { type: :model, name: name.to_s }
     }
   end
@@ -73,6 +66,25 @@ module Aura
       )
     }
 
+    rule(:train) {
+      str("train") >> space? >> identifier.as(:model) >> space? >> str("on") >> space? >> string.as(:dataset) >> space? >> str("do") >> newline >>
+      (indent >> train_line).repeat >> str("end")
+    }
+
+    rule(:train_line) {
+      indent >> (
+        str("epochs") >> space? >> number.as(:epochs) >> newline |
+        str("batch_size") >> space? >> number.as(:batch_size) >> newline |
+        str("optimizer") >> space? >> symbol.as(:optimizer) >> (str(", learning_rate:") >> space? >> number.as(:lr)).maybe >> newline |
+        str("loss") >> space? >> symbol.as(:loss) >> newline |
+        str("metrics") >> space? >> symbol.as(:metrics) >> newline
+      )
+    }
+
+    rule(:evaluate) {
+      str("evaluate") >> space? >> identifier.as(:model) >> space? >> str("on") >> space? >> string.as(:dataset) >> newline
+    }
+
     rule(:route) {
       str("route") >> space? >> string.as(:path) >> space? >> (str("get") | str("post")).as(:method) >> space? >> str("do") >> newline >>
       (indent >> route_line).repeat >> str("end")
@@ -86,7 +98,7 @@ module Aura
       str("run web on port:") >> space? >> number.as(:port) >> newline
     }
 
-    rule(:statement) { dataset | model | route | run_web | newline }
+    rule(:statement) { dataset | model | train | evaluate | route | run_web | newline }
     rule(:program)   { statement.repeat }
 
     root(:program)
