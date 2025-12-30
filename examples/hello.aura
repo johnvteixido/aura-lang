@@ -1,8 +1,14 @@
-dataset "mnist" from huggingface "mnist" split train, test
+dataset "mnist" from huggingface "mnist"
 
 model classifier neural_network do
   input shape(28, 28, 1) flatten
-  layer dense units: 128, activation: :relu
+  layer dense units: 128, activation: relu
   layer dropout rate: 0.2
-  output units: 10, activation: :softmax
+  output units: 10, activation: softmax
 end
+
+route "/predict" post do
+  output prediction from classifier.predict(input)
+end
+
+run web on port: 3000
