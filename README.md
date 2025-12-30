@@ -1,17 +1,30 @@
-# 🌟 Aura
+# 🌟 Aura v0.1
 
-A forgiving, human-friendly declarative language for AI/ML and fast web apps.
+A forgiving, human-friendly declarative language for AI/ML and fast web apps. Inspired by Ruby elegance.
 
-Inspired by the beauty of Ruby and the joy of Rails.
-
+## Example (mnist_classifier.aura)
 ```aura
-#{File.read("examples/hello.aura")}
+dataset "mnist" from huggingface "mnist"
 
-Philosophy
+model classifier neural_network do
+  input shape(28, 28, 1) flatten
+  layer dense units: 128, activation: :relu
+  layer dropout rate: 0.2
+  output units: 10, activation: :softmax
+end
 
-Beautiful over clever
-Forgiving over strict
-Human happiness first
-Zero boilerplate
+train classifier on "mnist" do
+  epochs 5
+  batch_size 32
+  optimizer :adam, learning_rate: 0.001
+  loss :cross_entropy
+  metrics :accuracy
+end
 
-Work in progress · Join us!
+evaluate classifier on "mnist/test"
+
+route "/predict" post do
+  output prediction from classifier.predict(image) format :json
+end
+
+run web on port: 3000
