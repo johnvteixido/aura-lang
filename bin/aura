@@ -21,7 +21,21 @@ when "run"
   if filename && File.exist?(filename)
     Aura.run_file(filename)
   else
-    puts "😔 File not found: #{filename}. Want me to create a template?"
+    puts "😔 File not found: #{filename}."
+    puts "Creating a basic template for you! 🌟"
+    File.write(filename, <<~AURA)
+      model greeter neural_network do
+        input text
+        output greeting "Hello from Aura! 🌟"
+      end
+
+      route "/hello" get do
+        output prediction from greeter.predict(input) format :json
+      end
+
+      run web on port: 3000
+    AURA
+    puts "✅ Created #{filename}. Run 'aura run #{filename}' to start it."
   end
 else
   puts "Unknown command: #{command}"

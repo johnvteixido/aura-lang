@@ -45,6 +45,8 @@ module Aura
 
     rule(:model_line) {
       indent >> (
+        str("input text").as(:text_input) >> newline |
+        str("output greeting ") >> string.as(:greeting) >> newline |
         str("input shape(") >> number.repeat(1, nil).as(:shape) >> str(")") >> (space >> str("flatten")).maybe >> newline |
         str("layer dense units:") >> space >> number.as(:units) >>
         (str(", activation:") >> space >> symbol).maybe >> newline |
@@ -119,6 +121,8 @@ module Aura
     }
 
     # Model layers
+    rule(layer: { text_input: simple(:ti) }) { { type: :text_input } }
+    rule(layer: { greeting: simple(:g) }) { { type: :greeting, greeting: g[1..-2].to_s } }
     rule(layer: { shape: sequence(:dims) }) { { type: :input, shape: dims.map(&:to_i) } }
     rule(layer: { units: simple(:u), activation: simple(:a) }) {
       { type: :dense, units: Integer(u), activation: a || :relu }
@@ -130,8 +134,13 @@ module Aura
 
     # Full model
     rule(name: simple(:n), body: sequence(:layers)) {
-      model = Torch::NN::Sequential.new
-      prev_units = layers.find { |l| l[:type] == :input }&.[](:shape)&.reduce(:*) || 784
+      if layers.any? { |l| l.key?(:type) && l[:type] == :text_input }
+        greeting_layer = layers.find { |l| l.key?(:greeting) }
+        greeting = greeting_layer ? greeting_layer[:greeting] : "Hello!"
+        { type: :model, name: n.to_s, text_model: greeting }
+      else
+        model = Torch::NN::Sequential.new
+        prev_units = layers.find { |l| l[:type] == :input }&.[](:shape)&.reduce(:*) || 784
 
       layers.each do |layer|
         case layer[:type]
@@ -148,6 +157,7 @@ module Aura
       end
 
       { type: :model, name: n.to_s, torch_model: model }
+      end
     }
 
     # Train
@@ -211,7 +221,11 @@ module Aura
 
       # Define models
       #{models.map { |m|
-        "#{m[:name]}_model = #{m[:torch_model].inspect}.to(device)"
+        if m.key?(:text_model)
+          "#{m[:name]}_model = Proc.new { |input| #{m[:text_model].inspect} }"
+        else
+          "#{m[:name]}_model = #{m[:torch_model].inspect}.to(device)"
+        end
       }.join("\n")}
 
       # Training loops (with forgiveness)
@@ -253,11 +267,15 @@ module Aura
               begin
                 payload = request.body.read
                 data = payload.empty? ? {} : JSON.parse(payload)
-                input_tensor = Torch.tensor(data["#{r[:input]}"] || [1.0]).to(device)
-                prediction = #{r[:model]}_model.call(input_tensor.unsqueeze(0))
-                result = prediction.argmax(1).item
+                prediction = if defined?(#{r[:model]}_model) && #{r[:model]}_model.is_a?(Proc)
+                  #{r[:model]}_model.call(data["#{r[:input]}"])
+                else
+                  input_tensor = Torch.tensor(data["#{r[:input]}"] || [1.0]).to(device)
+                  pred = #{r[:model]}_model.call(input_tensor.unsqueeze(0))
+                  pred.argmax(1).item
+                end
 
-                #{r[:format] == :json ? "{ prediction: result }.to_json" : "<h1>Prediction: \#{result}</h1>"}
+                #{r[:format] == :json ? "{ prediction: prediction }.to_json" : "<h1>Prediction: \#{prediction}</h1>"}
               rescue JSON::ParserError
                 status 400
                 { error: "😔 Invalid JSON. Send { \\"#{r[:input]}\\": [...] }" }.to_json
@@ -269,7 +287,8 @@ module Aura
           ROUTE
         }.join("\n\n")}
 
-        run! if app_file == $0
+        # Always start server during run_file execution
+        run!
       end
     RUBY
   end

@@ -1,0 +1,10 @@
+route "/hello" get do
+  output prediction from greeter.predict(input) format :json
+end
+
+model greeter neural_network do
+  input text
+  output greeting "Hello from Aura! 🌟"
+end
+
+run web on port: 3000

@@ -5,7 +5,7 @@ Gem::Specification.new do |s|
   s.description = "Forgiving, Ruby-inspired DSL for ML pipelines and fast AI-powered web apps"
   s.authors     = ["John V Teixido"]
   s.email       = "your.email@example.com"  # Update
-  s.files       = Dir["{bin,lib,examples}/**/*", "README.md", "LICENSE", ".gitignore"]
+  s.files       = Dir["{bin,lib,examples}/**/*", "README.md", "LICENSE", ".gitignore", "aura-lang.gemspec"]
   s.homepage    = "https://github.com/johnvteixido/aura-lang"
   s.license     = "MIT"
   s.executables << "aura"
