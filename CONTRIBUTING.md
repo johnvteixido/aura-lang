@@ -37,7 +37,7 @@ We love PRs! Focus areas:
 - Transpiler enhancements (e.g., more ML layers, real Hugging Face integration).
 - Forgiveness features (e.g., better error suggestions).
 - Web extensions (e.g., more route types, authentication).
-- Tests (Minitest in `/tests`).
+- Tests (Minitest in `/tests` covering `test_cli`, `test_transpiler`, `test_aura`).
 - Performance tweaks (e.g., optimize Torch-rb usage).
 
 #### Setup for Development

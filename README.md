@@ -30,8 +30,9 @@ Aura fills the niche for "conversational coding" in AI, where iteration speed an
   - Plain-English errors with fix suggestions.
 - **Web Primitives**: Routes with AI hooks (e.g., predict on user input) transpiled to fast Sinatra apps.
 - **Extensible**: Add custom layers or integrations via Ruby extensions.
+- **Native LLMs**: Built-in AST mapping for OpenAI and local Ollama hooks.
 - **MVP Scope**: Supports simple neural nets (dense, dropout), mock/Hugging Face data, JSON/HTML responses.
-- **Future-Proof**: Roadmap includes real LLM integration, full Hugging Face support, and one-click deploys.
+- **Future-Proof**: Roadmap includes deployment strategies and more nuanced AI primitives.
 
 ## Installation
 Aura is distributed as a Ruby gem. Requires Ruby 3.3+.
@@ -79,12 +80,13 @@ For errors, Aura suggests fixes automatically—e.g., "Missing 'end'? Added it f
 
 ## Usage
 Aura files (`.aura`) are declarative scripts. The CLI transpiles and executes them:
+- `aura init <project_name>`: Scaffolds a complete Aura project structure.
 - `aura run <file.aura>`: Parse, transpile, run (trains models, starts web server).
 - Future: `aura deploy <file.aura>` for cloud (Vercel/Fly.io).
 
 Key Commands:
 - `aura --help`: Usage info.
-- `aura repl`: Interactive mode (roadmap).
+- `aura repl`: Run the interactive Readline live evaluation shell!
 
 ## Examples
 ### Basic ML Pipeline (mnist_classifier.aura)
@@ -129,6 +131,18 @@ run web on port: 8080
 ```
 Outputs dynamic HTML with AI-driven content.
 
+### Using Native LLMs (OpenAI & Ollama)
+Hooking into a local Ollama model directly over the network logic:
+```aura
+model assistant from ollama "llama3"
+
+route "/api/chat" post do
+  output prediction from assistant.predict(message) format :json
+end
+
+run web on port: 3000
+```
+
 ## Syntax Overview
 - **Blocks**: Use `do ... end` for models, trains, routes.
 - **Keywords**: Natural like `layer dense units: 128`.
@@ -145,8 +159,7 @@ Inspired by David Heinemeier Hansson (DHH) and Ruby on Rails:
 We believe languages should empower, not frustrate. Aura is our attempt at "Ruby for AI in 2025."
 
 ## Roadmap
-- v0.2: Real Hugging Face dataset loading, more layers (conv2d, LSTM).
-- v0.3: LLM integration (e.g., Ollama hooks), REPL mode.
+- v0.4: Extended visual/conv2d mapping for image models targeting Hugging Face parameters.
 - v1.0: Native compilation (via MRuby?), full web frameworks (Hanami/Rails interop), community extensions.
 - Long-term: Visual editor, enterprise features (federated learning).
 
