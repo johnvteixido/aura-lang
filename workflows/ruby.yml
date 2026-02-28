@@ -20,13 +20,7 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby-version }}
-          bundler-cache: false  # Avoids the buggy auto-install
-
-      - name: Install Bundler manually
-        run: gem install bundler --no-document
-
-      - name: Install dependencies
-        run: bundle install --jobs 4 --retry 3
+          bundler-cache: true
 
       - name: Run tests
         run: bundle exec minitest tests/test_aura.rb
