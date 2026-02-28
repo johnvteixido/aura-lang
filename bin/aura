@@ -37,6 +37,16 @@ when "run"
     AURA
     puts "✅ Created #{filename}. Run 'aura run #{filename}' to start it."
   end
+when "--help", "-h", "help"
+  puts <<~HELP
+    🌟 Aura v0.1 CLI 🌟
+    Usage:
+      aura run <file.aura>  - Parse, transpile, and execute script.
+      aura repl             - Start an interactive Aura REPL session.
+      aura --help           - Display this help message.
+  HELP
+when "repl"
+  puts "🌟 Interactive REPL mode is a planned feature on the roadmap (v0.3)! Stay tuned."
 else
-  puts "Unknown command: #{command}"
+  puts "😔 Unknown command: #{command}. Try 'aura --help'."
 end

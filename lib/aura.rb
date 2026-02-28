@@ -10,7 +10,7 @@ require "pry" if ENV["RACK_ENV"] == "development"
 begin
   require "torch"
 rescue LoadError
-  require_relative "mock_torch"
+  require_relative "aura/mock_torch"
 end
 
 module Aura
