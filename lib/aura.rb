@@ -37,8 +37,10 @@ module Aura
     # Model definition
     rule(:model_stmt) {
       str("model") >> space >> identifier.as(:name) >>
-      space >> str("neural_network") >> space >> str("do") >> newline >>
-      model_body.as(:body) >> str("end") >> newline?
+      space >> (
+        (str("from") >> space >> str("openai") >> space >> string.as(:openai_model)).as(:llm) |
+        (str("neural_network") >> space >> str("do") >> newline >> model_body.as(:body) >> str("end"))
+      ) >> newline?
     }
 
     rule(:model_body) { model_line.repeat(1) }
@@ -133,6 +135,10 @@ module Aura
     }
 
     # Full model
+    rule(name: simple(:n), llm: { openai_model: simple(:om) }) {
+      { type: :model, name: n.to_s, llm_model: om[1..-2].to_s }
+    }
+
     rule(name: simple(:n), body: sequence(:layers)) {
       if layers.any? { |l| l.key?(:type) && l[:type] == :text_input }
         greeting_layer = layers.find { |l| l.key?(:greeting) }
@@ -218,11 +224,40 @@ module Aura
       require "sinatra"
       require "json"
 
+      require "net/http"
+      require "uri"
+
       device = "#{device}"
 
       # Define models
       #{models.map { |m|
-        if m.key?(:text_model)
+        if m.key?(:llm_model)
+          <<~LLM
+            #{m[:name]}_model = Proc.new do |input|
+              api_key = ENV["OPENAI_API_KEY"]
+              if api_key.nil? || api_key.empty?
+                "😔 Missing OPENAI_API_KEY environment variable. I'm just a mock response pretending to be #{m[:llm_model]}! 🌟"
+              else
+                uri = URI("https://api.openai.com/v1/chat/completions")
+                req = Net::HTTP::Post.new(uri, {
+                  "Content-Type" => "application/json",
+                  "Authorization" => "Bearer \#{api_key}"
+                })
+                req.body = {
+                  model: "#{m[:llm_model]}",
+                  messages: [{ role: "user", content: input.to_s }]
+                }.to_json
+                
+                res = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) { |http| http.request(req) }
+                if res.is_a?(Net::HTTPSuccess)
+                  JSON.parse(res.body).dig("choices", 0, "message", "content") || "😔 Empty API response."
+                else
+                  "😔 API Error: \#{res.code} - \#{res.body}"
+                end
+              end
+            end
+          LLM
+        elsif m.key?(:text_model)
           "#{m[:name]}_model = Proc.new { |input| #{m[:text_model].inspect} }"
         else
           "#{m[:name]}_model = #{m[:torch_model].inspect}.to(device)"

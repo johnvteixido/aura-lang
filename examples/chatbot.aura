@@ -1,0 +1,7 @@
+model chatbot from openai "gpt-4"
+
+route "/chat" post do
+  output prediction from chatbot.predict(message) format :json
+end
+
+run web on port: 3000

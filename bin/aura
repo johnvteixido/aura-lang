@@ -46,7 +46,42 @@ when "--help", "-h", "help"
       aura --help           - Display this help message.
   HELP
 when "repl"
-  puts "🌟 Interactive REPL mode is a planned feature on the roadmap (v0.3)! Stay tuned."
+  require "readline"
+  puts "🌟 Welcome to the Aura REPL v0.1! Type '.exit' to quit."
+  puts "   (Multilines supported for 'do...end' blocks.)"
+  
+  buffer = ""
+  while (line = Readline.readline(buffer.empty? ? "aura> " : "   *> ", true))
+    break if line == ".exit" || line == "exit"
+    next if line.strip.empty?
+    
+    buffer += line + "\n"
+    
+    begin
+      Aura.parse(buffer) # Try to parse
+      ruby_code = Aura.transpile(buffer)
+      
+      puts "=> \e[32mTranspiled & Evaluated Successfully\e[0m"
+      begin
+        # For REPL safety, evaluate in a clean context but keep state if possible
+        eval(ruby_code, TOPLEVEL_BINDING)
+      rescue => e
+        puts "😔 Ruby Evaluation Error: #{e.message}"
+      end
+      
+      buffer = "" # Clear buffer on success
+    rescue Parslet::ParseFailed => e
+      # If it failed because it's incomplete (like missing "end"), keep buffering
+      if buffer.include?("do\n") && !buffer.match?(/\send\n?$/)
+        # Still typing a block, continue buffering
+      else
+        # It's a genuine syntax error, not just an incomplete block
+        puts "😔 Aura Syntax Error. Clearing buffer."
+        buffer = ""
+      end
+    end
+  end
+  puts "Goodbye! 🌟"
 else
   puts "😔 Unknown command: #{command}. Try 'aura --help'."
 end
