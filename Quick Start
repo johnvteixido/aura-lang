@@ -1,4 +1,4 @@
-Clone: git clone https://github.com/johnvteixido/aura-lang.git
-Install: bundle install
-Run: bin/aura run examples/mnist_classifier.aura
-Test inference: curl -X POST http://localhost:3000/predict -d '{"image": [[...]]}' (use mock 28x28 array)
+1. Clone: `git clone https://github.com/johnvteixido/aura-lang.git`
+2. Install: `bundle install`
+3. Run: `bin/aura run examples/mnist_classifier.aura`
+4. Test inference: `curl -X POST http://localhost:3000/predict -d '{"image": [[...]]}'` (use mock 28x28 array)

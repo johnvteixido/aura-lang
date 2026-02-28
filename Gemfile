@@ -10,4 +10,4 @@ group :development, :test do
   gem "pry", "~> 0.14"
   gem "rerun", "~> 0.14"
   gem "minitest", "~> 5.20"
-end
+end # End of dev group

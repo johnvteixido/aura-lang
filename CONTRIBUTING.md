@@ -5,9 +5,9 @@ Thank you for your interest in contributing to Aura! We're excited to build a fo
 Aura is an open-source project under the MIT License, inspired by Ruby's elegance and focused on developer happiness. We aim for a collaborative, inclusive community—let's keep it joyful and respectful.
 
 ## Code of Conduct
-We adopt the [Contributor Covenant Code of Conduct](https://www.contributor-covenant.org/version/2/1/code_of_conduct.html). By participating, you agree to uphold this code. Please report unacceptable behavior to the project maintainers at LinkedIn, johnvteixido.
+We adopt the [Contributor Covenant Code of Conduct](https://www.contributor-covenant.org/version/2/1/code_of_conduct.html). By participating, you agree to uphold this code. Please report unacceptable behavior to the project maintainers at LinkedIn, @johnvteixido.
 
-In short: Be kind, inclusive, and constructive. No harassment, discrimination, or toxicity.
+In short: Be kind, inclusive, and constructive. No harassment, discrimination, or toxicity here!
 
 ## How Can I Contribute?
 ### Reporting Bugs
