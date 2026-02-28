@@ -19,4 +19,37 @@ class TestAura < Minitest::Test
     ast = Aura::Parser.new.parse(source)
     assert ast
   end
+
+  def test_parse_comments
+    source = <<~AURA
+      # This is a comment
+      model test from openai "gpt-3.5" # Inline comment!
+      
+      route "/" get do
+        output greeting "Hi" # Say hi
+      end
+    AURA
+    
+    # Aura.parse automatically strips comments before Parslet AST runs
+    begin
+      ast = Aura.parse(source)
+      assert ast
+    rescue Exception => e
+      flunk "Failed to parse with comments: #{e.message}"
+    end
+  end
+  
+  def test_unmatched_syntax_rescue
+    source = <<~AURA
+      model greeter neural_network do
+        input text
+      # Missing end!
+    AURA
+    
+    error = assert_raises(RuntimeError) do
+      Aura.parse(source)
+    end
+    
+    assert_match(/forgot the `end` closure/, error.message)
+  end
 end

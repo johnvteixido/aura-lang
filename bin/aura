@@ -45,6 +45,31 @@ when "--help", "-h", "help"
       aura repl             - Start an interactive Aura REPL session.
       aura --help           - Display this help message.
   HELP
+when "init"
+  project_name = ARGV[1]
+  if project_name.nil? || project_name.empty?
+    puts "😔 Please provide a project name: aura init <name>"
+    exit 1
+  end
+
+  require "fileutils"
+  FileUtils.mkdir_p(File.join(project_name, "models"))
+  FileUtils.mkdir_p(File.join(project_name, "data"))
+  
+  app_template = <<~AURA
+    model assistant from openai "gpt-3.5-turbo"
+
+    route "/api/chat" post do
+      output prediction from assistant.predict(message) format :json
+    end
+
+    run web on port: 3000
+  AURA
+  
+  File.write(File.join(project_name, "app.aura"), app_template)
+  puts "🌟 Created Aura project: #{project_name}!"
+  puts "   cd #{project_name}"
+  puts "   aura run app.aura"
 when "repl"
   require "readline"
   puts "🌟 Welcome to the Aura REPL v0.1! Type '.exit' to quit."
