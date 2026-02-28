@@ -193,7 +193,8 @@ module Aura
 
   # Public API
   def self.parse(source)
-    Parser.new.parse(source)
+    clean_source = source.lines.map { |l| l.sub(/#.*$/, '') }.join
+    Parser.new.parse(clean_source)
   rescue Parslet::ParseFailed => e
     puts "😔 Parse error: #{e.message}"
     puts "   Hint: Check indentation, missing 'end', or unbalanced blocks?"

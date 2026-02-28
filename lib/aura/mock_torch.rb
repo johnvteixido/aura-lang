@@ -16,9 +16,16 @@ module Torch
     end
 
     def to(device); self; end
+    def unsqueeze(dim); self; end
+    def item; @data.first; end
 
     def argmax(dim)
-      Tensor.new([@data.each_with_index.max_by { |v, _| v }[1]])
+      idx = if @data.is_a?(Array) && @data.any?
+        @data.each_with_index.max_by { |v, _| v.to_f }[1] || 0
+      else
+        0
+      end
+      Tensor.new([idx])
     end
   end
 
@@ -31,6 +38,11 @@ module Torch
     class Sequential < Module
       def initialize(*layers)
         @layers = layers
+      end
+
+      def <<(layer)
+        @layers << layer
+        self
       end
 
       def call(input)
@@ -64,7 +76,11 @@ module Torch
       def call(input); input; end
     end
 
-    class CrossEntropyLoss < Module; end
+    class CrossEntropyLoss < Module
+      def call(output, target)
+        Tensor.new([0.5])
+      end
+    end
   end
 
   module Optim
@@ -73,6 +89,11 @@ module Torch
       def zero_grad; end
       def step; end
     end
+  end
+
+  def self.randint(low, high, size)
+    total_size = size.is_a?(Array) ? size.reduce(:*) : size
+    Tensor.new(Array.new(total_size) { rand(low...high) })
   end
 
   def self.cuda_available?
