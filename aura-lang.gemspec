@@ -12,6 +12,6 @@ Gem::Specification.new do |s|
   s.add_dependency "parslet", "~> 2.0"
   s.add_dependency "torch-rb", "~> 0.10"
   s.add_dependency "sinatra", "~> 4.2"
-  s.add_dependency "puma", "~> 7.2"
+  s.add_dependency "puma", ">= 7.2", "< 9.0"
   s.add_dependency "json", "~> 2.7"
 end
