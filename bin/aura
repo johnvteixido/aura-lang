@@ -1,19 +1,25 @@
 #!/usr/bin/env ruby
 
 require "aura"
+require "fileutils"
 
-if ARGV.empty?
+def show_welcome
   puts <<~WELCOME
-    🌟 Welcome to Aura v0.1 🌟
-    A forgiving, human-friendly language for AI and fast web apps.
+    🌟 Aura Framework v1.0 (Production Grade) 🌟
+    Build AI-powered web apps at light speed.
 
     Usage: aura [command]
-      aura run <file.aura>   - Run an Aura file
-      aura check <file.aura> - Transpile and show generated Ruby without running
-      aura init <name>       - Scaffold a new Aura project
-      aura repl              - Start an interactive Aura REPL session
-      aura --help            - Display this help message
+      aura run <file.aura>   - Run your Aura app
+      aura check <file.aura> - Transpile and preview generated Ruby
+      aura build <file.aura> - Export to a standalone Sinatra app
+      aura init <name>       - Scaffold a new production project
+      aura console           - Open the app console (Pry)
+      aura --help            - Show this help
   WELCOME
+end
+
+if ARGV.empty?
+  show_welcome
   exit
 end
 
@@ -25,110 +31,89 @@ when "run"
   if filename && File.exist?(filename)
     Aura.run_file(filename)
   else
-    # FIX BUG-9: combined message so test assertion matches
-    puts "😔 File not found: #{filename}. Generating a template for you! 🌟"
-    File.write(filename, <<~AURA)
-      model greeter neural_network do
-        input text
-        output greeting "Hello from Aura! 🌟"
-      end
-
-      route "/hello" get do
-        output prediction from greeter.predict(input) format :json
-      end
-
-      run web on port: 3000
-    AURA
-    puts "✅ Created #{filename}. Run 'aura run #{filename}' to start it."
-  end
-
-# GAP-6 FIX: new `check` command — transpile and print without launching server
-when "check"
-  if filename.nil? || filename.empty?
-    puts "😔 Please provide a file: aura check <file.aura>"
+    puts "😔 File not found: #{filename}."
     exit 1
   end
-  Aura.check_file(filename)
 
-when "--help", "-h", "help"
-  # FIX BUG-11: include the `Usage: aura [command]` line the test expects
-  puts <<~HELP
-    🌟 Aura v0.1 CLI 🌟
+when "check"
+  if filename && File.exist?(filename)
+    puts Aura.transpile(File.read(filename))
+  else
+    puts "😔 File not found: #{filename}."
+    exit 1
+  end
 
-    Usage: aura [command]
-      aura run <file.aura>   - Parse, transpile, and execute script.
-      aura check <file.aura> - Transpile and print generated Ruby (no server).
-      aura init <name>       - Scaffold a complete Aura project structure.
-      aura repl              - Start an interactive Aura REPL session.
-      aura --help            - Display this help message.
-  HELP
+when "build"
+  if filename && File.exist?(filename)
+    ruby_code = Aura.transpile(File.read(filename))
+    out_file = filename.sub(".aura", ".rb")
+    File.write(out_file, ruby_code)
+    puts "✅ Built standalone application: #{out_file}"
+    puts "🚀 Run with: ruby #{out_file}"
+  else
+    puts "😔 File not found: #{filename}."
+    exit 1
+  end
 
 when "init"
   project_name = ARGV[1]
-  if project_name.nil? || project_name.empty?
-    puts "😔 Please provide a project name: aura init <name>"
+  if project_name.nil?
+    puts "😔 Please provide a project name."
     exit 1
   end
 
-  require "fileutils"
+  puts "🏗️  Scaffolding production project: #{project_name}..."
   FileUtils.mkdir_p(File.join(project_name, "models"))
   FileUtils.mkdir_p(File.join(project_name, "data"))
-
+  FileUtils.mkdir_p(File.join(project_name, "public"))
+  
   app_template = <<~AURA
-    model assistant from openai "gpt-3.5-turbo"
-
-    route "/api/chat" post do
-      output prediction from assistant.predict(message) format :json
+    environment production do
+      log_level :info
+      device :cuda
     end
 
-    run web on port: 3000
+    model classifier neural_network do
+      input shape(28, 28, 1) flatten
+      layer dense units: 128, activation: :relu
+      layer dropout rate: 0.2
+      output units: 10, activation: :softmax
+    end
+
+    route "/v1/predict" post do
+      output prediction from classifier.predict(image) format :json
+    end
+
+    run web on port: 8080
   AURA
 
+  gemfile_template = <<~GEMFILE
+    source 'https://rubygems.org'
+    gem 'aura-lang'
+    gem 'torch-rb'
+    gem 'sinatra'
+    gem 'puma'
+    gem 'json'
+    gem 'datasets'
+  GEMFILE
+
   File.write(File.join(project_name, "app.aura"), app_template)
-  puts "🌟 Created Aura project: #{project_name}!"
+  File.write(File.join(project_name, "Gemfile"), gemfile_template)
+  
+  puts "✅ Project created! Now run:"
   puts "   cd #{project_name}"
+  puts "   bundle install"
   puts "   aura run app.aura"
 
-when "repl"
-  require "readline"
-  puts "🌟 Welcome to the Aura REPL v0.1! Type '.exit' to quit."
-  puts "   (Multilines supported for 'do...end' blocks.)"
+when "console"
+  require "pry"
+  puts "🔮 Aura Console (Production Context)"
+  Pry.start
 
-  buffer = ""
-  while (line = Readline.readline(buffer.empty? ? "aura> " : "   *> ", true))
-    break if line == ".exit" || line == "exit"
-    next if line.strip.empty?
-
-    buffer += line + "\n"
-
-    begin
-      Aura.parse(buffer) # Try to parse — raises Aura::ParseError on failure
-      ruby_code = Aura.transpile(buffer)
-
-      puts "=> \e[32mTranspiled & Evaluated Successfully\e[0m"
-      begin
-        eval(ruby_code, TOPLEVEL_BINDING)
-      rescue => e
-        puts "😔 Ruby Evaluation Error: #{e.message}"
-      end
-
-      buffer = "" # Clear buffer on success
-
-    # FIX GAP-5: Aura.parse now raises Aura::ParseError (not Parslet::ParseFailed).
-    # We also keep the Parslet rescue as a safety net.
-    rescue Aura::ParseError, Parslet::ParseFailed => e
-      # If it failed because it's an incomplete block, keep buffering
-      if buffer.include?("do\n") && !buffer.match?(/\send\n?$/)
-        # Still typing a block, continue buffering silently
-      else
-        puts "😔 Aura Syntax Error: #{e.message.lines.first&.strip}. Clearing buffer."
-        buffer = ""
-      end
-    end
-  end
-  puts "Goodbye! 🌟"
+when "--help", "-h", "help"
+  show_welcome
 
 else
-  puts "😔 Unknown command: #{command}. Try 'aura --help'."
+  puts "😔 Unknown command: #{command}."
   exit 1
 end

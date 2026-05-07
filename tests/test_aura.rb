@@ -1,55 +1,50 @@
-# tests/test_aura.rb
 require "minitest/autorun"
 require_relative "../lib/aura"
 
-class TestAura < Minitest::Test
-  def test_parse_hello_example
+class TestAuraFramework < Minitest::Test
+  def test_transpilation_of_cnn_model
     source = <<~AURA
-      model greeter neural_network do
-        input text
-        output greeting "Hello from Aura! 🌟"
-      end
-
-      route "/hello" get do
-        output prediction from greeter.predict(input) format :json
-      end
-
-      run web on port: 3000
-    AURA
-    ast = Aura::Parser.new.parse(source)
-    assert ast
-  end
-
-  def test_parse_comments
-    source = <<~AURA
-      # This is a comment
-      model test from openai "gpt-3.5" # Inline comment!
-      
-      route "/" get do
-        output greeting "Hi" # Say hi
+      model vision neural_network do
+        input shape(28, 28, 1)
+        layer conv2d filters: 32, kernel: 3
+        layer flatten
+        output units: 10, activation: :softmax
       end
     AURA
     
-    # Aura.parse automatically strips comments before Parslet AST runs
-    begin
-      ast = Aura.parse(source)
-      assert ast
-    rescue Exception => e
-      flunk "Failed to parse with comments: #{e.message}"
-    end
+    ruby_code = Aura.transpile(source)
+    assert_match(/class VisionModel < Torch::NN::Module/, ruby_code)
+    assert_match(/Torch::NN::Conv2d\.new\(1, 32, 3/, ruby_code)
+    assert_match(/x\.view\(x\.size\(0\), -1\)/, ruby_code)
   end
-  
-  def test_unmatched_syntax_rescue
+
+  def test_environment_configuration
     source = <<~AURA
-      model greeter neural_network do
-        input text
-      # Missing end!
+      environment production do
+        api_key "secret_123"
+        port 8080
+      end
     AURA
     
-    error = assert_raises(Aura::ParseError) do
-      Aura.parse(source)
-    end
+    ruby_code = Aura.transpile(source)
+    assert_match(/class AuraConfig/, ruby_code)
+    assert_match(/api_key: "secret_123"/, ruby_code)
+    assert_match(/port: 8080/, ruby_code)
+  end
 
-    assert_match(/forgot the `end` closure/, error.message)
+  def test_route_generation
+    source = <<~AURA
+      model m neural_network do
+        input shape(10)
+        output units: 2, activation: :relu
+      end
+      route "/api" post do
+        output prediction from m.predict(data)
+      end
+    AURA
+    
+    ruby_code = Aura.transpile(source)
+    assert_match(/post '\/api' do/, ruby_code)
+    assert_match(/m_model\.call\(Torch\.tensor\(input\)\)/, ruby_code)
   end
 end
