@@ -1,0 +1,36 @@
+environment production do
+  device :cuda
+  log_level :info
+  api_key "secret"
+end
+
+dataset "images" from huggingface "mnist" do
+  shuffle true
+  batch_size 32
+end
+
+model vision neural_network do
+  input shape(28, 28, 1) do
+    resize 28
+    to_tensor
+  end
+
+  layer conv2d filters: 16, kernel: 3
+  layer maxpool2d size: 2
+  layer batchnorm
+  layer flatten
+  
+  layer dense units: 64, activation: :relu
+  layer dropout rate: 0.1
+  output units: 10, activation: :softmax
+
+  load weights from "weights.pth"
+  save weights to "weights.pth"
+end
+
+route "/predict" post do
+  authenticate with :token
+  output prediction from vision.predict(image) format :json
+end
+
+run web on port: 8080
