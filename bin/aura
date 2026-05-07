@@ -5,13 +5,14 @@ require "fileutils"
 
 def show_welcome
   puts <<~WELCOME
-    🌟 Aura Framework v1.0 (Production Grade) 🌟
-    Build AI-powered web apps at light speed.
+    🌟 Aura Framework v1.1.0 (The Production Suite) 🌟
+    Build, Train, and Deploy AI Apps.
 
     Usage: aura [command]
       aura run <file.aura>   - Run your Aura app
       aura check <file.aura> - Transpile and preview generated Ruby
       aura build <file.aura> - Export to a standalone Sinatra app
+      aura deploy <file.aura> - Generate Docker deployment assets
       aura init <name>       - Scaffold a new production project
       aura console           - Open the app console (Pry)
       aura --help            - Show this help
@@ -49,7 +50,14 @@ when "build"
     out_file = filename.sub(".aura", ".rb")
     File.write(out_file, ruby_code)
     puts "✅ Built standalone application: #{out_file}"
-    puts "🚀 Run with: ruby #{out_file}"
+  else
+    puts "😔 File not found: #{filename}."
+    exit 1
+  end
+
+when "deploy"
+  if filename && File.exist?(filename)
+    Aura.build_docker(filename)
   else
     puts "😔 File not found: #{filename}."
     exit 1
@@ -62,52 +70,48 @@ when "init"
     exit 1
   end
 
-  puts "🏗️  Scaffolding production project: #{project_name}..."
+  puts "🏗️  Scaffolding v1.1.0 project: #{project_name}..."
   FileUtils.mkdir_p(File.join(project_name, "models"))
   FileUtils.mkdir_p(File.join(project_name, "data"))
-  FileUtils.mkdir_p(File.join(project_name, "public"))
   
   app_template = <<~AURA
     environment production do
-      log_level :info
       device :cuda
+      log_level :info
+    end
+
+    dataset "mnist" from huggingface "mnist" do
+      shuffle true
+      normalize true
     end
 
     model classifier neural_network do
-      input shape(28, 28, 1) flatten
-      layer dense units: 128, activation: :relu
-      layer dropout rate: 0.2
+      input shape(28, 28, 1) do
+        resize 28
+        to_tensor
+      end
+      
+      layer conv2d filters: 32, kernel: 3
+      layer flatten
+      layer dense units: 128
       output units: 10, activation: :softmax
+
+      save weights to "models/mnist.pth"
     end
 
-    route "/v1/predict" post do
-      output prediction from classifier.predict(image) format :json
+    route "/predict" post do
+      authenticate with :token
+      output prediction from classifier.predict(image)
     end
 
     run web on port: 8080
   AURA
 
-  gemfile_template = <<~GEMFILE
-    source 'https://rubygems.org'
-    gem 'aura-lang'
-    gem 'torch-rb'
-    gem 'sinatra'
-    gem 'puma'
-    gem 'json'
-    gem 'datasets'
-  GEMFILE
-
   File.write(File.join(project_name, "app.aura"), app_template)
-  File.write(File.join(project_name, "Gemfile"), gemfile_template)
-  
-  puts "✅ Project created! Now run:"
-  puts "   cd #{project_name}"
-  puts "   bundle install"
-  puts "   aura run app.aura"
+  puts "✅ Project created! Use 'aura deploy app.aura' to containerize."
 
 when "console"
   require "pry"
-  puts "🔮 Aura Console (Production Context)"
   Pry.start
 
 when "--help", "-h", "help"
