@@ -1,44 +1,65 @@
-# 🌟 Aura: The Declarative AI Web Framework
+# 🌟 Aura: The Advanced AI Web Framework (v1.2.0)
 
 [![Ruby Version](https://img.shields.io/badge/ruby-3.3%2B-brightgreen.svg)](https://ruby-lang.org)
 [![Gem Version](https://img.shields.io/gem/v/aura-lang?color=blue)](https://rubygems.org/gems/aura-lang)
 
-Aura is a **professional-grade AI Web Framework** that allows you to build, train, and deploy AI-powered web applications in a single declarative file. Built on top of **Torch-rb** and **Sinatra**, Aura combines the power of deep learning with the simplicity of modern web development.
+Aura is a **professional-grade AI Web Framework** that allows you to build, train, and deploy advanced AI models in a single declarative file. By combining **Torch-rb**, **Torchvision**, and **Sinatra**, Aura bridges the gap between deep learning research and production web services.
 
-## 🚀 Why Aura?
-- **Single-File AI Apps**: Define your environment, neural network, training pipeline, and web routes in one cohesive `.aura` file.
-- **Production Ready**: Transpiles to high-performance Ruby classes, using subclassing for models and Puma for serving.
-- **Advanced ML Support**: Native support for CNNs (`Conv2D`, `MaxPool2d`), `BatchNorm`, `Dropout`, and `Dense` layers.
-- **Seamless Deployment**: Use `aura build` to export your project into a standalone Sinatra application ready for any Ruby cloud provider.
+## 🚀 Key Features
+- **Transfer Learning (New)**: Bootstrap your models with pre-trained architectures (ResNet, BERT, etc.) using `transfer from :model_name`.
+- **Advanced Training**: Declarative Learning Rate Schedulers (`StepLR`, `ExponentialLR`) and Optimizer configurations.
+- **Model Persistence**: Native `save` and `load` primitives for model weights.
+- **Production Infrastructure**: Transpiles to class-based Ruby using `Torch::NN::Module` subclassing and Puma for high-performance serving.
+- **Seamless Deployment**: Generate production-ready Dockerfiles with `aura deploy`.
 
-## 🛠️ Quick Start
-1. **Install**: `gem install aura-lang`
-2. **Init**: `aura init my_app`
-3. **Run**: `aura run my_app/app.aura`
+## 🛠️ Installation
+```bash
+gem install aura-lang
+```
 
-## 🧠 Example: CNN Classifier
+## 🧠 Example: Transfer Learning Image API
+Build a professional Image Classifier in seconds:
+
 ```aura
-model vision neural_network do
-  input shape(28, 28, 1) flatten
-  layer conv2d filters: 32, kernel: 3
-  layer maxpool2d size: 2
-  layer batchnorm
-  layer dense units: 128, activation: :relu
+# Scaffolding a production vision API
+environment production do
+  device :cuda
+  log_level :info
+end
+
+model vision transfer from :resnet18 do
+  # Fine-tune the head while keeping features frozen
+  freeze until :layer_4
   output units: 10, activation: :softmax
 end
 
-route "/api/classify" post do
-  output prediction from vision.predict(image) format :json
+train vision on "imagenet-subset" do
+  epochs 20
+  optimizer :adam, learning_rate: 0.0001
+  scheduler :step_lr # Advanced LR scheduling
+end
+
+route "/v1/classify" post do
+  authenticate with :token
+  output prediction from vision.predict(image)
 end
 
 run web on port: 8080
 ```
 
 ## 🏗️ Commands
-- `aura init <name>`: Scaffold a new project structure.
+- `aura init <name>`: Scaffold a new production project.
 - `aura run <file>`: Start your application.
 - `aura build <file>`: Export to standalone Ruby.
+- `aura deploy <file>`: Generate a production `Dockerfile`.
 - `aura console`: Interactive debugging with app context.
+
+## 📈 Roadmap
+- [x] CNN & Convolutional Layers
+- [x] Model Persistence (v1.1)
+- [x] Transfer Learning & Schedulers (v1.2)
+- [ ] Distributed Training (v1.3)
+- [ ] Native RAG (Retrieval Augmented Generation) Primitives (v1.4)
 
 ## 📜 License
 MIT
