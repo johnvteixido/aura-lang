@@ -7,23 +7,29 @@ class TestCLI < Minitest::Test
     @bin_path = File.expand_path("../../bin/aura", __FILE__)
     @test_dir = File.expand_path("../../tmp_test_dir", __FILE__)
     FileUtils.rm_rf(@test_dir)
+    FileUtils.mkdir_p(@test_dir)
   end
 
   def teardown
     FileUtils.rm_rf(@test_dir)
   end
 
+  # FIX BUG-11: help output now includes "Usage: aura [command]"
   def test_help_flag
-    stdout, stderr, status = Open3.capture3("ruby", @bin_path, "--help")
+    stdout, _stderr, status = Open3.capture3("ruby", @bin_path, "--help")
+    assert_match(/Usage: aura \[command\]/, stdout)
+    assert_equal 0, status.exitstatus
+  end
+
+  def test_help_alias
+    stdout, _stderr, status = Open3.capture3("ruby", @bin_path, "help")
     assert_match(/Usage: aura \[command\]/, stdout)
     assert_equal 0, status.exitstatus
   end
 
   def test_init_command
-    # This command doesn't exist yet, but the test will drive the implementation
-    Dir.mkdir(@test_dir) unless Dir.exist?(@test_dir)
     Dir.chdir(@test_dir) do
-      stdout, stderr, status = Open3.capture3("ruby", @bin_path, "init", "my_app")
+      stdout, _stderr, status = Open3.capture3("ruby", @bin_path, "init", "my_app")
       assert_match(/Created Aura project: my_app/, stdout)
       assert Dir.exist?("my_app/models")
       assert Dir.exist?("my_app/data")
@@ -32,15 +38,44 @@ class TestCLI < Minitest::Test
     end
   end
 
+  def test_init_without_name_exits_nonzero
+    _stdout, _stderr, status = Open3.capture3("ruby", @bin_path, "init")
+    refute_equal 0, status.exitstatus
+  end
+
+  # FIX BUG-9: message now combined into single string matching /File not found.*Generating a template/
   def test_run_generates_template_if_missing
-    Dir.mkdir(@test_dir) unless Dir.exist?(@test_dir)
     Dir.chdir(@test_dir) do
-      # Note: The CLI instantly evals this file after creating it, so it might fail
-      # ruby evaluation if torch isn't installed. We just want to check if the file
-      # gets written to disk. Our CLI prints "File not found" and writes it.
-      stdout, stderr, status = Open3.capture3("ruby", @bin_path, "run", "missing.aura")
+      stdout, _stderr, _status = Open3.capture3("ruby", @bin_path, "run", "missing.aura")
       assert_match(/File not found: missing\.aura\. Generating a template/, stdout)
-      assert File.exist?("missing.aura")
+      assert File.exist?("missing.aura"), "Template file should have been created"
     end
+  end
+
+  def test_unknown_command_exits_nonzero
+    _stdout, _stderr, status = Open3.capture3("ruby", @bin_path, "bogus_command")
+    refute_equal 0, status.exitstatus
+  end
+
+  def test_check_command_on_valid_file
+    # Write a minimal .aura file to the temp dir, then run `check` on it
+    aura_file = File.join(@test_dir, "sample.aura")
+    File.write(aura_file, <<~AURA)
+      model greeter neural_network do
+        input text
+        output greeting "Hello!"
+      end
+
+      route "/hello" get do
+        output prediction from greeter.predict(input) format :json
+      end
+
+      run web on port: 3000
+    AURA
+
+    stdout, _stderr, status = Open3.capture3("ruby", @bin_path, "check", aura_file)
+    assert_equal 0, status.exitstatus
+    assert_match(/Transpilation successful/, stdout)
+    assert_match(/require "sinatra"/, stdout)
   end
 end

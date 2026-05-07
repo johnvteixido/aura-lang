@@ -26,7 +26,7 @@ jobs:
       run: bundle install
 
     - name: Run tests
-      run: bundle exec minitest tests/test_aura.rb
+      run: bundle exec rake test
 
     - name: Build gem (sanity)
       run: gem build aura-lang.gemspec

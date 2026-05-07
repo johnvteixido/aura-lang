@@ -7,13 +7,17 @@ if ARGV.empty?
     🌟 Welcome to Aura v0.1 🌟
     A forgiving, human-friendly language for AI and fast web apps.
 
-    Usage:
-      aura run examples/mnist_classifier.aura  # Run an Aura file
+    Usage: aura [command]
+      aura run <file.aura>   - Run an Aura file
+      aura check <file.aura> - Transpile and show generated Ruby without running
+      aura init <name>       - Scaffold a new Aura project
+      aura repl              - Start an interactive Aura REPL session
+      aura --help            - Display this help message
   WELCOME
   exit
 end
 
-command = ARGV[0]
+command  = ARGV[0]
 filename = ARGV[1]
 
 case command
@@ -21,8 +25,8 @@ when "run"
   if filename && File.exist?(filename)
     Aura.run_file(filename)
   else
-    puts "😔 File not found: #{filename}."
-    puts "Creating a basic template for you! 🌟"
+    # FIX BUG-9: combined message so test assertion matches
+    puts "😔 File not found: #{filename}. Generating a template for you! 🌟"
     File.write(filename, <<~AURA)
       model greeter neural_network do
         input text
@@ -37,14 +41,28 @@ when "run"
     AURA
     puts "✅ Created #{filename}. Run 'aura run #{filename}' to start it."
   end
+
+# GAP-6 FIX: new `check` command — transpile and print without launching server
+when "check"
+  if filename.nil? || filename.empty?
+    puts "😔 Please provide a file: aura check <file.aura>"
+    exit 1
+  end
+  Aura.check_file(filename)
+
 when "--help", "-h", "help"
+  # FIX BUG-11: include the `Usage: aura [command]` line the test expects
   puts <<~HELP
     🌟 Aura v0.1 CLI 🌟
-    Usage:
-      aura run <file.aura>  - Parse, transpile, and execute script.
-      aura repl             - Start an interactive Aura REPL session.
-      aura --help           - Display this help message.
+
+    Usage: aura [command]
+      aura run <file.aura>   - Parse, transpile, and execute script.
+      aura check <file.aura> - Transpile and print generated Ruby (no server).
+      aura init <name>       - Scaffold a complete Aura project structure.
+      aura repl              - Start an interactive Aura REPL session.
+      aura --help            - Display this help message.
   HELP
+
 when "init"
   project_name = ARGV[1]
   if project_name.nil? || project_name.empty?
@@ -55,7 +73,7 @@ when "init"
   require "fileutils"
   FileUtils.mkdir_p(File.join(project_name, "models"))
   FileUtils.mkdir_p(File.join(project_name, "data"))
-  
+
   app_template = <<~AURA
     model assistant from openai "gpt-3.5-turbo"
 
@@ -65,48 +83,52 @@ when "init"
 
     run web on port: 3000
   AURA
-  
+
   File.write(File.join(project_name, "app.aura"), app_template)
   puts "🌟 Created Aura project: #{project_name}!"
   puts "   cd #{project_name}"
   puts "   aura run app.aura"
+
 when "repl"
   require "readline"
   puts "🌟 Welcome to the Aura REPL v0.1! Type '.exit' to quit."
   puts "   (Multilines supported for 'do...end' blocks.)"
-  
+
   buffer = ""
   while (line = Readline.readline(buffer.empty? ? "aura> " : "   *> ", true))
     break if line == ".exit" || line == "exit"
     next if line.strip.empty?
-    
+
     buffer += line + "\n"
-    
+
     begin
-      Aura.parse(buffer) # Try to parse
+      Aura.parse(buffer) # Try to parse — raises Aura::ParseError on failure
       ruby_code = Aura.transpile(buffer)
-      
+
       puts "=> \e[32mTranspiled & Evaluated Successfully\e[0m"
       begin
-        # For REPL safety, evaluate in a clean context but keep state if possible
         eval(ruby_code, TOPLEVEL_BINDING)
       rescue => e
         puts "😔 Ruby Evaluation Error: #{e.message}"
       end
-      
+
       buffer = "" # Clear buffer on success
-    rescue Parslet::ParseFailed => e
-      # If it failed because it's incomplete (like missing "end"), keep buffering
+
+    # FIX GAP-5: Aura.parse now raises Aura::ParseError (not Parslet::ParseFailed).
+    # We also keep the Parslet rescue as a safety net.
+    rescue Aura::ParseError, Parslet::ParseFailed => e
+      # If it failed because it's an incomplete block, keep buffering
       if buffer.include?("do\n") && !buffer.match?(/\send\n?$/)
-        # Still typing a block, continue buffering
+        # Still typing a block, continue buffering silently
       else
-        # It's a genuine syntax error, not just an incomplete block
-        puts "😔 Aura Syntax Error. Clearing buffer."
+        puts "😔 Aura Syntax Error: #{e.message.lines.first&.strip}. Clearing buffer."
         buffer = ""
       end
     end
   end
   puts "Goodbye! 🌟"
+
 else
   puts "😔 Unknown command: #{command}. Try 'aura --help'."
+  exit 1
 end

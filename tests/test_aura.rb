@@ -46,10 +46,10 @@ class TestAura < Minitest::Test
       # Missing end!
     AURA
     
-    error = assert_raises(RuntimeError) do
+    error = assert_raises(Aura::ParseError) do
       Aura.parse(source)
     end
-    
+
     assert_match(/forgot the `end` closure/, error.message)
   end
 end

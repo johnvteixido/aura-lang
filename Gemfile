@@ -7,7 +7,8 @@ gem "puma", "~> 7.2"
 gem "json", "~> 2.7"
 
 group :development, :test do
-  gem "pry", "~> 0.14"
-  gem "rerun", "~> 0.14"
+  gem "pry",      "~> 0.14"
+  gem "rerun",    "~> 0.14"
   gem "minitest", "~> 6.0"
-end # End of dev group
+  gem "rake",     "~> 13.0"
+end
