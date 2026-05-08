@@ -67,7 +67,7 @@ run web on port: 8080
 ## ☕ Support Aura Development
 Aura is an open-source project by RootSpace.app. If you find the framework useful, please consider supporting its development.
 
-**[Support Aura on Stripe (Choose what you pay)](https://donate.stripe.com/aura_framework)**  
+**[Support Aura on Stripe (Choose what you pay)](https://donate.stripe.com/9B66oH2hHbci9ZNd5jc7u00)**  
 *All donations go directly towards maintaining the infrastructure and developing new features like v1.3 Distributed Training.*
 
 ## 📜 License
