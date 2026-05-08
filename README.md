@@ -20,6 +20,15 @@ Aura is a **professional-grade AI Web Framework** that allows you to build, trai
 gem install aura-lang
 ```
 
+### 🔨 Local Installation (From Source)
+If you are developing Aura or want to use the latest unreleased version:
+```bash
+git clone https://github.com/johnvteixido/aura-lang
+cd aura-lang
+gem build aura-lang.gemspec
+gem install ./aura-lang-1.2.0.gem
+```
+
 ## 🧠 Example: Transfer Learning Image API
 Build a professional Image Classifier in seconds:
 

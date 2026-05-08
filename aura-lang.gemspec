@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name        = "aura-lang"
-  s.version     = "1.0.0"
+  s.version     = "1.2.0"
   s.summary     = "Aura: The Declarative AI Web Framework"
   s.description = "A professional-grade framework for building AI pipelines and AI-integrated web apps with Ruby and Torch."
   s.authors     = ["John V Teixido"]
