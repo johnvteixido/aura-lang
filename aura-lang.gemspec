@@ -6,7 +6,7 @@ Gem::Specification.new do |s|
   s.authors     = ["John V Teixido"]
   s.email       = "johnvteixido@github.com"
   s.files       = Dir["{bin,lib,examples}/**/*", "README.md", "LICENSE", "Rakefile", "aura-lang.gemspec"]
-  s.homepage    = "https://github.com/johnvteixido/aura-lang"
+  s.homepage    = "https://rootspace.app"
   s.license     = "MIT"
   s.executables << "aura"
   s.add_dependency "parslet", "~> 2.0"

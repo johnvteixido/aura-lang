@@ -6,6 +6,8 @@ require "fileutils"
 def show_welcome
   puts <<~WELCOME
     🌟 Aura Framework v1.1.0 (The Production Suite) 🌟
+    A RootSpace.app Product | Developed by John V. Teixido
+    
     Build, Train, and Deploy AI Apps.
 
     Usage: aura [command]

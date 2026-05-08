@@ -1,5 +1,8 @@
 # 🌟 Aura: The Advanced AI Web Framework (v1.2.0)
 
+**A [RootSpace.app](https://rootspace.app) Product**  
+**Founded and Developed by [John V. Teixido](https://github.com/johnvteixido)**
+
 [![Ruby Version](https://img.shields.io/badge/ruby-3.3%2B-brightgreen.svg)](https://ruby-lang.org)
 [![Gem Version](https://img.shields.io/gem/v/aura-lang?color=blue)](https://rubygems.org/gems/aura-lang)
 
@@ -60,6 +63,12 @@ run web on port: 8080
 - [x] Transfer Learning & Schedulers (v1.2)
 - [ ] Distributed Training (v1.3)
 - [ ] Native RAG (Retrieval Augmented Generation) Primitives (v1.4)
+
+## ☕ Support Aura Development
+Aura is an open-source project by RootSpace.app. If you find the framework useful, please consider supporting its development.
+
+**[Support Aura on Stripe (Choose what you pay)](https://donate.stripe.com/aura_framework)**  
+*All donations go directly towards maintaining the infrastructure and developing new features like v1.3 Distributed Training.*
 
 ## 📜 License
 MIT
