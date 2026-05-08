@@ -14,6 +14,6 @@ Gem::Specification.new do |s|
   s.add_dependency "sinatra", "~> 4.2"
   s.add_dependency "puma", "~> 7.2"
   s.add_dependency "json", "~> 2.7"
-  s.add_dependency "datasets", "~> 0.1"
+  s.add_dependency "red-datasets", "~> 0.1"
   s.add_dependency "dotenv", "~> 3.1"
 end
