@@ -16,6 +16,8 @@ module Aura
 
     def analyze
       defined_models = @nodes.select { |n| n[:type] == :model }.map { |n| n[:name] }
+      check_unique_models!(defined_models)
+      check_unique_routes!
 
       @nodes.each do |node|
         case node[:type]
@@ -29,6 +31,28 @@ module Aura
     end
 
     private
+
+    # A model name must be unique: two definitions would both generate the same
+    # class/accessor, silently shadowing one another.
+    def check_unique_models!(names)
+      dups = names.group_by(&:itself).select { |_, v| v.size > 1 }.keys
+      return if dups.empty?
+
+      raise SemanticError,
+            "Duplicate model name#{'s' if dups.size > 1}: #{dups.join(', ')}. Each model must have a unique name."
+    end
+
+    # The same HTTP verb + path can't be routed twice -- the second handler
+    # would be unreachable.
+    def check_unique_routes!
+      seen = {}
+      @nodes.select { |n| n[:type] == :route }.each do |route|
+        key = "#{route[:method].to_s.upcase} #{route[:path]}"
+        raise SemanticError, "Duplicate route: #{key} is defined more than once." if seen[key]
+
+        seen[key] = true
+      end
+    end
 
     def require_model!(defined_models, name, context)
       return if name.nil? || defined_models.include?(name)

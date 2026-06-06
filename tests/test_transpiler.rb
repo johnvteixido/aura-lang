@@ -152,4 +152,112 @@ class TestTranspiler < Minitest::Test
     assert_equal "classifier", eval_node[:model]
     assert_equal "mnist/test", eval_node[:dataset]
   end
+
+  # --- v1.2.1: parse + codegen feature coverage -----------------------------
+
+  # P1: trailing/inline `# ...` comments are stripped (the README example uses
+  # `scheduler :step_lr # ...`).
+  def test_inline_comments_are_stripped
+    source = <<~AURA
+      model n neural_network do
+        input shape(10)
+        output units: 2, activation: :relu
+      end
+
+      train n on "d" do
+        optimizer :adam, learning_rate: 0.01 # trailing comment
+        scheduler :step_lr # another one
+      end
+    AURA
+    assert_silent { Aura.transpile(source) }
+    cfg = parse_and_transform(source).find { |n| n[:type] == :train }[:config]
+    assert_in_delta 0.01, cfg[:lr], 0.0001
+    assert_equal :step_lr, cfg[:scheduler]
+  end
+
+  # P3: scientific-notation numbers parse to Float.
+  def test_scientific_notation_learning_rate
+    source = <<~AURA
+      model n neural_network do
+        input shape(10)
+        output units: 2, activation: :relu
+      end
+
+      train n on "d" do
+        optimizer :adam, learning_rate: 1e-4
+      end
+    AURA
+    cfg = parse_and_transform(source).find { |n| n[:type] == :train }[:config]
+    assert_in_delta 0.0001, cfg[:lr], 1e-9
+    assert_match(/lr: 0.0001/, Aura.transpile(source))
+  end
+
+  # P4: negative numbers parse (e.g. a -1 reshape dim).
+  def test_negative_numbers_in_input_shape
+    source = <<~AURA
+      model m neural_network do
+        input shape(-1, 28, 28)
+        output units: 3, activation: :softmax
+      end
+    AURA
+    shape = parse_and_transform(source).find { |n| n[:type] == :model }[:layers]
+                                       .find { |l| l[:type] == :input }[:shape]
+    assert_equal [-1, 28, 28], shape
+  end
+
+  # P2: escaped quotes survive into the generated string literal.
+  def test_escaped_quotes_in_greeting
+    source = %(model g neural_network do\n  input text\n  output greeting "say \\"hi\\""\nend\n)
+    assert_match(/say \\"hi\\"/, Aura.transpile(source))
+  end
+
+  # S2/S3: transfer models apply freeze and build a classification head.
+  def test_transfer_model_applies_freeze_and_head
+    source = <<~AURA
+      model vision transfer from :resnet18 do
+        freeze until :layer_4
+        output units: 10, activation: :softmax
+      end
+    AURA
+    code = Aura.transpile(source)
+    assert_match(/Torchvision::Models\.resnet18\(pretrained: true\)/, code)
+    assert_match(/requires_grad = false/, code)
+    assert_match(/@head = Torch::NN::Linear\.new\(1000, 10\)/, code)
+    assert_match(/Torch::NN::F\.softmax\(@head\.call\(x\), dim: 1\)/, code)
+  end
+
+  # R3: a declared `save weights` is actually invoked after the training loop.
+  def test_training_invokes_save_weights_when_declared
+    source = <<~AURA
+      model m neural_network do
+        input shape(10)
+        output units: 2, activation: :softmax
+        save weights to "m.pth"
+      end
+
+      train m on "mnist" do
+        epochs 1
+      end
+    AURA
+    code = Aura.transpile(source)
+    assert_match(/def m_save_weights/, code)
+    assert_match(/^m_save_weights$/, code) # the call, not just the def
+  end
+
+  # E2/Q5: the route reads the JSON key named in `model.predict(<var>)`.
+  def test_route_uses_dsl_input_variable_as_payload_key
+    source = <<~AURA
+      model m neural_network do
+        input shape(10)
+        output units: 2, activation: :softmax
+      end
+
+      route "/p" post do
+        output prediction from m.predict(features)
+      end
+
+      run web on port: 3000
+    AURA
+    assert_match(/input = payload\["features"\]/, Aura.transpile(source))
+  end
 end

@@ -1,11 +1,13 @@
+require_relative "lib/aura/version"
+
 Gem::Specification.new do |s|
   s.name        = "aura-lang"
-  s.version     = "1.2.0"
+  s.version     = Aura::VERSION
   s.summary     = "Aura: The Declarative AI Web Framework"
   s.description = "A professional-grade framework for building AI pipelines and AI-integrated web apps with Ruby and Torch."
   s.authors     = ["John V Teixido"]
   s.email       = "johnvteixido@github.com"
-  s.files       = Dir["{bin,lib,examples}/**/*", "README.md", "LICENSE", "Rakefile", "aura-lang.gemspec"]
+  s.files       = Dir["{bin,lib,examples}/**/*", "README.md", "CHANGELOG.md", "DEPLOY.md", "LICENSE", "Rakefile", "aura-lang.gemspec"]
   s.homepage    = "https://rootspace.app"
   s.license     = "MIT"
   s.required_ruby_version = ">= 3.2"

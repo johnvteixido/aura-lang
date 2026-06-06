@@ -1,0 +1,25 @@
+# Transfer-learning image API (mirrors the README example).
+# Scaffolding a production vision API
+environment production do
+  device :cuda
+  log_level :info
+end
+
+model vision transfer from :resnet18 do
+  # Fine-tune the head while keeping features frozen
+  freeze until :layer_4
+  output units: 10, activation: :softmax
+end
+
+train vision on "imagenet-subset" do
+  epochs 20
+  optimizer :adam, learning_rate: 0.0001
+  scheduler :step_lr # Advanced LR scheduling
+end
+
+route "/v1/classify" post do
+  authenticate with :token
+  output prediction from vision.predict(image)
+end
+
+run web on port: 8080

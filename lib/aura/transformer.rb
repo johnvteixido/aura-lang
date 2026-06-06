@@ -45,9 +45,10 @@ module Aura
       out   = lines.find { |l| l.key?(:route_model) }
       auth  = lines.find { |l| l.key?(:auth) }
       { type: :route, path: path.to_s, method: method.to_s,
-        model:  out && out[:route_model],
-        format: out && out[:route_format],
-        auth:   auth && auth[:auth] }
+        model:     out && out[:route_model],
+        input_var: (out && out[:route_input]) || "input",
+        format:    out && out[:route_format],
+        auth:      auth && auth[:auth] }
     end
 
     def settings(body)
@@ -66,10 +67,20 @@ module Aura
   # values are directly usable.
   class Transformer < Parslet::Transform
     # ---- leaves --------------------------------------------------------------
-    rule(str: simple(:s))    { s.to_s }
+    rule(str: simple(:s)) do
+      s.to_s.gsub(/\\(.)/) do
+        case Regexp.last_match(1)
+        when "n" then "\n"
+        when "t" then "\t"
+        else Regexp.last_match(1) # \" -> ", \\ -> \, and any other \X -> X
+        end
+      end
+    end
     rule(sym: simple(:s))    { s.to_s.to_sym }
     rule(bool: simple(:b))   { b.to_s == "true" }
-    rule(number: simple(:n)) { (x = n.to_s).include?(".") ? x.to_f : x.to_i }
+    # Float when it has a decimal point or exponent (1e-4); Integer otherwise
+    # (including signed values like -5).
+    rule(number: simple(:n)) { (x = n.to_s).match?(/[.eE]/) ? x.to_f : x.to_i }
 
     # ---- model body lines ----------------------------------------------------
     rule(input_shape: subtree(:s)) { { type: :input, shape: Aura::Nodes.list(s) } }
@@ -92,8 +103,8 @@ module Aura
     rule(unfreeze_all: simple(:_x)) { { type: :unfreeze_all } }
 
     # ---- route body lines ----------------------------------------------------
-    rule(route_model: simple(:m), route_input: simple(:i), route_format: simple(:f)) { { route_model: m.to_s, route_format: f } }
-    rule(route_model: simple(:m), route_input: simple(:i)) { { route_model: m.to_s, route_format: nil } }
+    rule(route_model: simple(:m), route_input: simple(:i), route_format: simple(:f)) { { route_model: m.to_s, route_input: i.to_s, route_format: f } }
+    rule(route_model: simple(:m), route_input: simple(:i)) { { route_model: m.to_s, route_input: i.to_s, route_format: nil } }
     rule(auth: simple(:a)) { { auth: a } }
 
     # ---- key/value lines (env + dataset options) -----------------------------

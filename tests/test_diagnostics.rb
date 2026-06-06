@@ -52,4 +52,61 @@ class TestDiagnostics < Minitest::Test
     AURA
     assert_silent { Aura.transpile(source) }
   end
+
+  def test_duplicate_model_name_raises_semantic_error
+    source = <<~AURA
+      model dup neural_network do
+        input shape(10)
+        output units: 2, activation: :relu
+      end
+
+      model dup neural_network do
+        input shape(5)
+        output units: 2, activation: :relu
+      end
+    AURA
+    error = assert_raises(Aura::SemanticError) { Aura.transpile(source) }
+    assert_match(/dup/, error.message)
+  end
+
+  def test_duplicate_route_raises_semantic_error
+    source = <<~AURA
+      model m neural_network do
+        input shape(10)
+        output units: 2, activation: :relu
+      end
+
+      route "/x" post do
+        output prediction from m.predict(input)
+      end
+
+      route "/x" post do
+        output prediction from m.predict(input)
+      end
+
+      run web on port: 3000
+    AURA
+    error = assert_raises(Aura::SemanticError) { Aura.transpile(source) }
+    assert_match(%r{/x}, error.message)
+  end
+
+  def test_same_path_with_different_verbs_is_allowed
+    source = <<~AURA
+      model m neural_network do
+        input shape(10)
+        output units: 2, activation: :softmax
+      end
+
+      route "/x" post do
+        output prediction from m.predict(input)
+      end
+
+      route "/x" get do
+        output prediction from m.predict(input)
+      end
+
+      run web on port: 3000
+    AURA
+    assert_silent { Aura.transpile(source) }
+  end
 end

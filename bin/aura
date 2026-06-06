@@ -34,9 +34,24 @@ end
 # Run a block, turning Aura compile errors into friendly CLI output.
 def guard
   yield
-rescue Aura::ParseError, Aura::SemanticError => e
+rescue Aura::ParseError, Aura::SemanticError, Aura::DeployError => e
   warn "Error: #{e.message}"
   exit 1
+end
+
+# Resolve the deploy target from trailing args: `--target vercel`,
+# `--target=vercel`, or `--vercel`. Defaults to "docker".
+def deploy_target(args)
+  args = Array(args)
+  if (i = args.index("--target")) && args[i + 1]
+    args[i + 1]
+  elsif (flag = args.find { |a| a.start_with?("--target=") })
+    flag.split("=", 2).last
+  elsif args.include?("--vercel")
+    "vercel"
+  else
+    "docker"
+  end
 end
 
 command  = ARGV[0]
@@ -84,7 +99,12 @@ when "build"
 
 when "deploy"
   if filename && File.exist?(filename)
-    guard { Aura.build_docker(filename) }
+    guard do
+      case deploy_target(ARGV[2..])
+      when "vercel" then Aura.build_vercel(filename)
+      else               Aura.build_docker(filename)
+      end
+    end
   else
     warn "File not found: #{filename}."
     exit 1

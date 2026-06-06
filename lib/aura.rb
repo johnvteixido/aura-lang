@@ -23,6 +23,7 @@ require_relative "aura/transformer"
 require_relative "aura/analyzer"
 require_relative "aura/codegen"
 require_relative "aura/docker"
+require_relative "aura/vercel"
 
 module Aura
   # A small, fully-parseable starter app used by `aura init` and the
@@ -48,11 +49,36 @@ module Aura
 
   module_function
 
-  # Strip full-line `#` comments before parsing. The comment text is removed but
-  # the newline is kept, so line numbers stay accurate for diagnostics. Also
-  # normalizes the source to UTF-8 (examples may contain emoji, etc.).
+  # Strip `#` comments before parsing -- both full-line and trailing/inline
+  # (e.g. `scheduler :step_lr # note`). A `#` inside a double-quoted string is
+  # left intact. Comment text is removed but newlines are preserved, so line
+  # numbers stay accurate for diagnostics. Also normalizes the source to UTF-8
+  # (examples may contain emoji, etc.).
   def preprocess(source)
-    source.to_s.dup.force_encoding("UTF-8").gsub(/^[ \t]*#.*$/, "")
+    source.to_s.dup.force_encoding("UTF-8")
+          .each_line.map { |line| strip_comment(line) }.join
+  end
+
+  # Remove a trailing `# ...` comment from a single line, ignoring any `#` that
+  # sits inside a double-quoted string. Backslash escapes are honored so a `\"`
+  # inside a string does not prematurely end it. A trailing newline (if present)
+  # is preserved so downstream line numbers do not shift.
+  def strip_comment(line)
+    in_string = false
+    escaped   = false
+    line.each_char.with_index do |ch, i|
+      if escaped
+        escaped = false
+      elsif ch == "\\"
+        escaped = true
+      elsif ch == '"'
+        in_string = !in_string
+      elsif ch == "#" && !in_string
+        tail = line.end_with?("\n") ? "\n" : ""
+        return line[0...i].rstrip + tail
+      end
+    end
+    line
   end
 
   # Parse source into the raw Parslet tree, converting a Parslet failure into a
@@ -89,5 +115,11 @@ module Aura
   # Generate Docker deployment assets for a .aura file (backs `aura deploy`).
   def build_docker(filename)
     Docker.build(filename)
+  end
+
+  # Generate Vercel deployment assets for an LLM-only .aura file
+  # (backs `aura deploy <file> --target vercel`).
+  def build_vercel(filename)
+    Vercel.build(filename)
   end
 end

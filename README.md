@@ -1,4 +1,4 @@
-# 🌟 Aura: The Advanced AI Web Framework (v1.2.0)
+# 🌟 Aura: The Advanced AI Web Framework (v1.2.1)
 
 **A [RootSpace.app](https://rootspace.app) Product**  
 **Founded and Developed by [John V. Teixido](https://github.com/johnvteixido)**
@@ -31,7 +31,7 @@ If you are developing Aura or want to use the latest unreleased version:
 git clone https://github.com/johnvteixido/aura-lang
 cd aura-lang
 gem build aura-lang.gemspec
-gem install ./aura-lang-1.2.0.gem
+gem install ./aura-lang-1.2.1.gem
 ```
 
 ## 🧠 Example: Transfer Learning Image API
@@ -64,13 +64,34 @@ end
 run web on port: 8080
 ```
 
+> **What runs out of the box:** `aura check` / `build` / `deploy` transpile this
+> to a standalone Sinatra app with no extra setup. **Training and serving** need
+> [`torch-rb`](https://github.com/ankane/torch.rb) + LibTorch installed.
+> Built-in dataset loading covers the [red-datasets](https://github.com/red-data-tools/red-datasets)
+> sets (MNIST / Fashion-MNIST / CIFAR); for any other dataset, the generated
+> loader raises with a clear hook so you can plug your own in.
+
 ## 🏗️ Commands
 - `aura init <name>`: Scaffold a new production project.
 - `aura run <file>`: Start your application.
 - `aura check <file>`: Transpile and preview the generated Ruby.
 - `aura build <file>`: Export to standalone Ruby.
-- `aura deploy <file>`: Generate a production `Dockerfile`.
+- `aura deploy <file>`: Generate a production `Dockerfile` (add `--target vercel` for LLM-only apps).
 - `aura console`: Interactive debugging with app context.
+
+## 🚢 Deployment
+See **[DEPLOY.md](DEPLOY.md)** for the full guide. In short:
+
+- **Torch apps** (neural networks, transfer learning, training) → a **container
+  host** (Fly.io / Render / Cloud Run; GPU via Modal / Replicate). `aura deploy`
+  emits a `Dockerfile`. Torch model servers need LibTorch and a long-lived
+  process, so they don't fit serverless platforms like Vercel.
+- **LLM-only / text apps** (`from openai` / `from ollama`) → **Vercel** (Ruby
+  serverless) via `aura deploy <file> --target vercel`, or any container host.
+- **Databases** are optional and not part of the core framework (the only state
+  is the saved weights file). When you need persistence, Vercel's Storage tab
+  (Supabase / Neon Postgres) plugs in via a `DATABASE_URL` env var — see
+  DEPLOY.md.
 
 ## 📈 Roadmap
 - [x] CNN & Convolutional Layers

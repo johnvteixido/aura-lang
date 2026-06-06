@@ -1,39 +1,53 @@
 name: Ruby Gem Push
 
+# Publishes the gem when a GitHub Release is published, or when a vX.Y.Z tag is
+# pushed (see RELEASING.md). Versioning is single-sourced from lib/aura/version.rb.
 on:
   release:
-    types: [published]  # Or on: push: tags: ['v*']
+    types: [published]
+  push:
+    tags:
+      - "v*"
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
+      id-token: write # Trusted Publishing (OIDC) to RubyGems -- no stored API key
+      packages: write # GitHub Packages
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Ruby
-      uses: ruby/setup-ruby@v1
-      with:
-        ruby-version: '3.3'  # Match your Ruby version
-        bundler-cache: true
+      - uses: actions/checkout@v4
 
-    - name: Run tests  # Custom: Ensure quality before publish
-      run: bundle exec minitest tests/test_aura.rb
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
 
-    - name: Build gem
-      run: gem build aura-lang.gemspec
+      - name: Run tests
+        run: |
+          for t in tests/test_*.rb; do
+            bundle exec ruby -Ilib -Itests "$t" || exit 1
+          done
 
-    - name: Publish to RubyGems
-      run: gem push *.gem
-      env:
-        GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
+      - name: Build gem
+        run: gem build aura-lang.gemspec
 
-    - name: Publish to GitHub Packages
-      run: |
-        gem push --key github \
-        --host https://rubygems.pkg.github.com/${{ github.repository_owner }} \
-        *.gem
-      env:
-        GEM_HOST_API_KEY: ${{ secrets.GITHUB_TOKEN }}
+      # OIDC: exchanges the workflow's identity token for a short-lived RubyGems
+      # key. Requires a one-time Trusted Publisher setup on rubygems.org (see
+      # RELEASING.md). No RUBYGEMS_API_KEY secret needed.
+      - name: Configure RubyGems credentials (Trusted Publishing)
+        uses: rubygems/configure-rubygems-credentials@main
+
+      - name: Publish to RubyGems
+        run: gem push *.gem
+
+      - name: Publish to GitHub Packages
+        run: |
+          gem push --key github \
+            --host https://rubygems.pkg.github.com/${{ github.repository_owner }} \
+            *.gem
+        env:
+          GEM_HOST_API_KEY: ${{ secrets.GITHUB_TOKEN }}

@@ -18,8 +18,18 @@ module Aura
     rule(:blank_lines) { (sp >> nl).repeat }
 
     rule(:identifier) { match('[a-zA-Z_]') >> match('[a-zA-Z0-9_]').repeat }
-    rule(:string)  { str('"') >> (str('"').absent? >> any).repeat.as(:str) >> str('"') }
-    rule(:number)  { (match('[0-9]').repeat(1) >> (str(".") >> match('[0-9]').repeat(1)).maybe).as(:number) }
+    # Double-quoted string; `\X` escape pairs are consumed as a unit so a `\"`
+    # does not terminate the literal (unescaped by the Transformer).
+    rule(:string) do
+      str('"') >> ((str("\\") >> any) | (str('"').absent? >> any)).repeat.as(:str) >> str('"')
+    end
+    # Integer/float with optional leading sign and scientific notation
+    # (e.g. `-5`, `0.001`, `1e-4`, `3.2E+5`).
+    rule(:number) do
+      (str("-").maybe >> match('[0-9]').repeat(1) >>
+        (str(".") >> match('[0-9]').repeat(1)).maybe >>
+        (match('[eE]') >> match('[-+]').maybe >> match('[0-9]').repeat(1)).maybe).as(:number)
+    end
     rule(:symbol)  { str(":") >> identifier.as(:sym) }
     rule(:boolean) { (str("true") | str("false")).as(:bool) }
     rule(:value)   { string | number | boolean | symbol }

@@ -18,6 +18,10 @@ module Aura
   # e.g. training/serving a model that was never defined.
   class SemanticError < StandardError; end
 
+  # Raised when a deployment target can't host the generated app -- e.g. asking
+  # to deploy a Torch model server to Vercel's serverless runtime.
+  class DeployError < StandardError; end
+
   # Turns Parslet's internal failure cause tree into a human-friendly
   # Aura::ParseError with line/column information and a source snippet.
   module Diagnostics
