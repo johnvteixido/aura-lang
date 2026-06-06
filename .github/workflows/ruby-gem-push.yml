@@ -27,10 +27,7 @@ jobs:
           bundler-cache: true
 
       - name: Run tests
-        run: |
-          for t in tests/test_*.rb; do
-            bundle exec ruby -Ilib -Itests "$t" || exit 1
-          done
+        run: bundle exec rake test
 
       - name: Build gem
         run: gem build aura-lang.gemspec

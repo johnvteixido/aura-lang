@@ -71,7 +71,7 @@ module Aura
     end
 
     # Uses the long-standing `@vercel/ruby` builder. Ruby is a community runtime
-    # on Vercel -- confirm/adjust the builder for your account (see DEPLOY.md).
+    # on Vercel; adjust the builder for your account if the identifier changes.
     def vercel_json
       <<~JSON
         {

@@ -80,18 +80,13 @@ run web on port: 8080
 - `aura console`: Interactive debugging with app context.
 
 ## 🚢 Deployment
-See **[DEPLOY.md](DEPLOY.md)** for the full guide. In short:
-
-- **Torch apps** (neural networks, transfer learning, training) → a **container
-  host** (Fly.io / Render / Cloud Run; GPU via Modal / Replicate). `aura deploy`
-  emits a `Dockerfile`. Torch model servers need LibTorch and a long-lived
-  process, so they don't fit serverless platforms like Vercel.
-- **LLM-only / text apps** (`from openai` / `from ollama`) → **Vercel** (Ruby
-  serverless) via `aura deploy <file> --target vercel`, or any container host.
-- **Databases** are optional and not part of the core framework (the only state
-  is the saved weights file). When you need persistence, Vercel's Storage tab
-  (Supabase / Neon Postgres) plugs in via a `DATABASE_URL` env var — see
-  DEPLOY.md.
+- **Torch apps** (neural networks, transfer learning, training) run on a
+  container host (Fly.io, Render, Cloud Run; GPU via Modal or Replicate).
+  `aura deploy <file>` generates a production `Dockerfile`. Torch model servers
+  need LibTorch and a long-lived process, so they are not suited to serverless
+  platforms.
+- **LLM-only / text apps** (`from openai` / `from ollama`) run on Vercel's Ruby
+  runtime via `aura deploy <file> --target vercel`, or on any container host.
 
 ## 📈 Roadmap
 - [x] CNN & Convolutional Layers

@@ -6,7 +6,7 @@ updates:
       interval: "weekly"  # Or "daily" for more frequent
     open-pull-requests-limit: 5  # Max open PRs at once
     labels: ["dependencies", "automated"]
-    reviewers: ["johnvteixido"]  # Your username for review
+    reviewers: ["johnvteixido"]  # repository maintainer
     commit-message:
       prefix: "deps"
       include: "scope"
