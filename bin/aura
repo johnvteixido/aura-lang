@@ -1,125 +1,121 @@
 #!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Make the gem's own lib reachable when run straight from a checkout
+# (e.g. `ruby bin/aura ...`), not just when installed as a gem.
+lib = File.expand_path("../lib", __dir__)
+$LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 
 require "aura"
 require "fileutils"
 
+# The starter app written by `init` / `run` lives in the library
+# (Aura::STARTER_TEMPLATE) so it can't drift from the grammar.
+STARTER_TEMPLATE = Aura::STARTER_TEMPLATE
+
 def show_welcome
   puts <<~WELCOME
-    🌟 Aura Framework v1.1.0 (The Production Suite) 🌟
+    Aura Framework v#{Aura::VERSION}
     A RootSpace.app Product | Developed by John V. Teixido
-    
+
     Build, Train, and Deploy AI Apps.
 
     Usage: aura [command]
-      aura run <file.aura>   - Run your Aura app
-      aura check <file.aura> - Transpile and preview generated Ruby
-      aura build <file.aura> - Export to a standalone Sinatra app
+      aura run <file.aura>    - Run your Aura app
+      aura check <file.aura>  - Transpile and preview generated Ruby
+      aura build <file.aura>  - Export to a standalone Sinatra app
       aura deploy <file.aura> - Generate Docker deployment assets
-      aura init <name>       - Scaffold a new production project
-      aura console           - Open the app console (Pry)
-      aura --help            - Show this help
+      aura init <name>        - Scaffold a new project
+      aura console            - Open an interactive console (Pry)
+      aura --help             - Show this help
   WELCOME
 end
 
-if ARGV.empty?
-  show_welcome
-  exit
+# Run a block, turning Aura compile errors into friendly CLI output.
+def guard
+  yield
+rescue Aura::ParseError, Aura::SemanticError => e
+  warn "Error: #{e.message}"
+  exit 1
 end
 
 command  = ARGV[0]
 filename = ARGV[1]
 
+if command.nil?
+  show_welcome
+  exit 0
+end
+
 case command
 when "run"
   if filename && File.exist?(filename)
-    Aura.run_file(filename)
+    guard { Aura.run_file(filename) }
   else
-    puts "😔 File not found: #{filename}."
-    exit 1
+    name = filename || "app.aura"
+    puts "File not found: #{name}. Generating a template..."
+    File.write(name, STARTER_TEMPLATE)
+    puts "Created #{name}. Edit it, then run: aura run #{name}"
   end
 
 when "check"
   if filename && File.exist?(filename)
-    puts Aura.transpile(File.read(filename))
+    guard do
+      code = Aura.transpile(File.read(filename))
+      puts "Transpilation successful"
+      puts code
+    end
   else
-    puts "😔 File not found: #{filename}."
+    warn "File not found: #{filename}."
     exit 1
   end
 
 when "build"
   if filename && File.exist?(filename)
-    ruby_code = Aura.transpile(File.read(filename))
-    out_file = filename.sub(".aura", ".rb")
-    File.write(out_file, ruby_code)
-    puts "✅ Built standalone application: #{out_file}"
+    guard do
+      out_file = filename.sub(/\.aura\z/, ".rb")
+      File.write(out_file, Aura.transpile(File.read(filename)))
+      puts "Built standalone application: #{out_file}"
+    end
   else
-    puts "😔 File not found: #{filename}."
+    warn "File not found: #{filename}."
     exit 1
   end
 
 when "deploy"
   if filename && File.exist?(filename)
-    Aura.build_docker(filename)
+    guard { Aura.build_docker(filename) }
   else
-    puts "😔 File not found: #{filename}."
+    warn "File not found: #{filename}."
     exit 1
   end
 
 when "init"
-  project_name = ARGV[1]
+  project_name = filename
   if project_name.nil?
-    puts "😔 Please provide a project name."
+    warn "Please provide a project name."
     exit 1
   end
 
-  puts "🏗️  Scaffolding v1.1.0 project: #{project_name}..."
   FileUtils.mkdir_p(File.join(project_name, "models"))
   FileUtils.mkdir_p(File.join(project_name, "data"))
-  
-  app_template = <<~AURA
-    environment production do
-      device :cuda
-      log_level :info
-    end
-
-    dataset "mnist" from huggingface "mnist" do
-      shuffle true
-      normalize true
-    end
-
-    model classifier neural_network do
-      input shape(28, 28, 1) do
-        resize 28
-        to_tensor
-      end
-      
-      layer conv2d filters: 32, kernel: 3
-      layer flatten
-      layer dense units: 128
-      output units: 10, activation: :softmax
-
-      save weights to "models/mnist.pth"
-    end
-
-    route "/predict" post do
-      authenticate with :token
-      output prediction from classifier.predict(image)
-    end
-
-    run web on port: 8080
-  AURA
-
-  File.write(File.join(project_name, "app.aura"), app_template)
-  puts "✅ Project created! Use 'aura deploy app.aura' to containerize."
+  File.write(File.join(project_name, "app.aura"), STARTER_TEMPLATE)
+  puts "Created Aura project: #{project_name}"
+  puts "   Next: cd #{project_name} && aura run app.aura"
 
 when "console"
-  require "pry"
-  Pry.start
+  begin
+    require "pry"
+    Pry.start
+  rescue LoadError
+    warn "Pry is not installed. Add it with: gem install pry"
+    exit 1
+  end
 
 when "--help", "-h", "help"
   show_welcome
 
 else
-  puts "😔 Unknown command: #{command}."
+  warn "Unknown command: #{command}."
   exit 1
 end

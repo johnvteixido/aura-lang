@@ -2,5 +2,6 @@
 vendor/
 Gemfile.lock
 *.log
+*.gem
 .vscode/
 .idea/

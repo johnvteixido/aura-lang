@@ -3,22 +3,25 @@
 Welcome! We are excited that you want to contribute to Aura, the declarative AI Web Framework. This document provides guidelines for contributing to the project.
 
 ## 🏛️ Project Architecture
-Aura is divided into three main layers:
-1.  **The Parser (`lib/aura.rb`)**: Uses the `parslet` gem to define the declarative grammar.
-2.  **The Transformer/Transpiler (`lib/aura.rb`)**: Converts the AST into production-grade Ruby code using `Torch::NN::Module` and `Sinatra`.
-3.  **The CLI (`bin/aura`)**: Handles project scaffolding, execution, and deployment.
+The compiler is a small pipeline of focused modules under `lib/aura/` (loaded by `lib/aura.rb`):
+1.  **Parser (`lib/aura/parser.rb`)**: a `parslet` PEG grammar for the declarative syntax.
+2.  **Transformer (`lib/aura/transformer.rb`)**: rewrites the raw parse tree into a flat list of semantic node hashes (helpers in `Aura::Nodes`).
+3.  **Analyzer (`lib/aura/analyzer.rb`)**: semantic checks, e.g. references to undefined models.
+4.  **Code generator (`lib/aura/codegen.rb` + `emitter.rb`)**: emits `Torch::NN::Module` subclasses, training loops, and classic-Sinatra handlers.
+5.  **Diagnostics (`lib/aura/diagnostics.rb`)**: turns parse failures into `Aura::ParseError` with line/column.
+6.  **CLI (`bin/aura`)**: project scaffolding, `run`/`check`/`build`/`deploy`.
 
 ## 🛠️ Development Setup
 1.  **Clone**: `git clone https://github.com/johnvteixido/aura-lang`
 2.  **Install Dependencies**: `bundle install`
-    - *Note: Requires LibTorch to be installed on your system for `torch-rb`.*
+    - *`torch-rb` is optional (it binds to LibTorch). The grammar, transpiler, and full test suite run without it. To run generated models locally, enable the ML group: `bundle config set --local with ml && bundle install`.*
 3.  **Run Tests**: `bundle exec rake test`
 
 ## 🚀 Contribution Workflow
 1.  **Fork and Branch**: Create a feature branch from `main`.
-2.  **Grammar Changes**: If adding a new keyword, update the `Aura::Parser` and ensure it doesn't break existing grammar rules.
-3.  **Transformation**: Add the corresponding rule in `Aura::Transformer` and implement the code generation logic in `Aura.transpile`.
-4.  **Tests**: Every new feature MUST include a test case in `tests/test_aura.rb`. We use `Minitest`.
+2.  **Grammar Changes**: If adding a new keyword, update `Aura::Parser` and ensure it doesn't break existing grammar rules.
+3.  **Transformation & Codegen**: Add the corresponding rule in `Aura::Transformer` (and `Aura::Nodes` helper if needed), then implement the emission in `Aura::CodeGen`.
+4.  **Tests**: Every new feature MUST include a test case under `tests/` (we use `Minitest`). New `.aura` syntax should also transpile to compilable Ruby — see `tests/test_examples.rb`.
 5.  **Audit**: Run `bin/aura check` on your new features to verify the generated Ruby code.
 
 ## ⚖️ Standards

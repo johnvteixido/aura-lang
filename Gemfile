@@ -1,12 +1,14 @@
 source "https://rubygems.org"
 
-gem "parslet", "~> 2.0"
-gem "torch-rb", "~> 0.10"
-gem "sinatra", "~> 4.2"
-gem "puma", "~> 7.2"
-gem "json", "~> 2.7"
-gem "red-datasets", "~> 0.1"
-gem "dotenv", "~> 3.1"
+gemspec
+
+# Torch is only needed to train/run generated models, and it binds to LibTorch
+# on the host. It lives in an optional group so `bundle install` (and CI) works
+# without LibTorch present. Enable it when you want to run models:
+#   bundle config set --local with ml && bundle install
+group :ml, optional: true do
+  gem "torch-rb", "~> 0.10"
+end
 
 group :development, :test do
   gem "pry",      "~> 0.14"

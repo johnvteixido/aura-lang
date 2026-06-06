@@ -20,6 +20,11 @@ Aura is a **professional-grade AI Web Framework** that allows you to build, trai
 gem install aura-lang
 ```
 
+> **Torch is optional.** Parsing, transpiling (`aura check`), and building
+> (`aura build` / `aura deploy`) work out of the box. Training and running
+> models additionally require [`torch-rb`](https://github.com/ankane/torch.rb)
+> and LibTorch: `gem install torch-rb`.
+
 ### 🔨 Local Installation (From Source)
 If you are developing Aura or want to use the latest unreleased version:
 ```bash
@@ -62,6 +67,7 @@ run web on port: 8080
 ## 🏗️ Commands
 - `aura init <name>`: Scaffold a new production project.
 - `aura run <file>`: Start your application.
+- `aura check <file>`: Transpile and preview the generated Ruby.
 - `aura build <file>`: Export to standalone Ruby.
 - `aura deploy <file>`: Generate a production `Dockerfile`.
 - `aura console`: Interactive debugging with app context.
