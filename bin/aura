@@ -21,10 +21,11 @@ def show_welcome
     Build, Train, and Deploy AI Apps.
 
     Usage: aura [command]
-      aura run <file.aura>    - Run your Aura app
+      aura run <file.aura>    - Serve your Aura app (loads weights, no training)
+      aura train <file.aura>  - Train the models, persist weights, then exit
       aura check <file.aura>  - Transpile and preview generated Ruby
       aura build <file.aura>  - Export to a standalone Sinatra app
-      aura deploy <file.aura> - Generate Docker deployment assets
+      aura deploy <file.aura> - Generate deployment assets (--target vercel for LLM apps)
       aura init <name>        - Scaffold a new project
       aura console            - Open an interactive console (Pry)
       aura --help             - Show this help
@@ -71,6 +72,15 @@ when "run"
     puts "File not found: #{name}. Generating a template..."
     File.write(name, STARTER_TEMPLATE)
     puts "Created #{name}. Edit it, then run: aura run #{name}"
+  end
+
+when "train"
+  if filename && File.exist?(filename)
+    ENV["AURA_TRAIN"] = "1" # generated code trains (and saves weights) then exits
+    guard { Aura.run_file(filename) }
+  else
+    warn "File not found: #{filename}."
+    exit 1
   end
 
 when "check"

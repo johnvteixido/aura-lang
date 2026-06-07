@@ -241,7 +241,7 @@ class TestTranspiler < Minitest::Test
     AURA
     code = Aura.transpile(source)
     assert_match(/def m_save_weights/, code)
-    assert_match(/^m_save_weights$/, code) # the call, not just the def
+    assert_match(/^\s+m_save_weights$/, code) # the call (inside the training guard), not just the def
   end
 
   # E2/Q5: the route reads the JSON key named in `model.predict(<var>)`.
@@ -259,5 +259,104 @@ class TestTranspiler < Minitest::Test
       run web on port: 3000
     AURA
     assert_match(/input = payload\["features"\]/, Aura.transpile(source))
+  end
+
+  # #1: inference reshapes the payload to the model's input dims (so a conv model
+  # route doesn't crash on a bare array) and runs under eval + no_grad.
+  def test_inference_reshapes_input_for_conv_model
+    source = <<~AURA
+      model clf neural_network do
+        input shape(28, 28, 1)
+        layer conv2d filters: 8, kernel: 3
+        layer flatten
+        output units: 10, activation: :softmax
+      end
+
+      route "/predict" post do
+        output prediction from clf.predict(image)
+      end
+
+      run web on port: 3000
+    AURA
+    code = Aura.transpile(source)
+    assert_match(/aura_input_tensor\(input, \[1, 28, 28\]\)/, code)
+    assert_match(/Torch\.no_grad do/, code)
+    assert_match(/clf_model\.eval/, code)
+  end
+
+  # #2: training is gated on AURA_TRAIN so it doesn't run on every server boot.
+  def test_training_is_gated_on_train_mode
+    source = <<~AURA
+      model m neural_network do
+        input shape(10)
+        output units: 2, activation: :softmax
+      end
+
+      train m on "mnist" do
+        epochs 3
+      end
+
+      run web on port: 3000
+    AURA
+    code = Aura.transpile(source)
+    assert_match(/if ENV\["AURA_TRAIN"\] == "1"/, code)
+    assert_match(/set :run, ENV\["AURA_TRAIN"\] != "1"/, code)
+  end
+
+  # #3: each LR scheduler gets the right constructor arguments.
+  def test_scheduler_constructors
+    {
+      step_lr: /StepLR\.new\(optimizer, step_size: 1, gamma: 0\.1\)/,
+      exponential_lr: /ExponentialLR\.new\(optimizer, gamma: 0\.9\)/,
+      cosine_annealing_lr: /CosineAnnealingLR\.new\(optimizer, t_max: 5\)/
+    }.each do |scheduler, pattern|
+      source = <<~AURA
+        model m neural_network do
+          input shape(10)
+          output units: 2, activation: :softmax
+        end
+
+        train m on "mnist" do
+          epochs 5
+          scheduler :#{scheduler}
+        end
+      AURA
+      assert_match(pattern, Aura.transpile(source), "wrong constructor for #{scheduler}")
+    end
+  end
+
+  # #7: LLM clients set timeouts and handle non-success responses.
+  def test_llm_client_has_timeouts_and_error_handling
+    code = Aura.transpile(<<~AURA)
+      model bot from openai "gpt-4o"
+
+      route "/c" post do
+        output prediction from bot.predict(message)
+      end
+
+      run web on port: 3000
+    AURA
+    assert_match(/http\.read_timeout = 60/, code)
+    assert_match(/unless response\.is_a\?\(Net::HTTPSuccess\)/, code)
+    assert_match(/rescue => e/, code)
+  end
+
+  # #8: auth uses a constant-time comparison and refuses when unconfigured.
+  def test_auth_is_constant_time
+    code = Aura.transpile(<<~AURA)
+      model m neural_network do
+        input shape(10)
+        output units: 2, activation: :softmax
+      end
+
+      route "/p" post do
+        authenticate with :token
+        output prediction from m.predict(x)
+      end
+
+      run web on port: 3000
+    AURA
+    assert_match(/Rack::Utils\.secure_compare/, code)
+    assert_match(/auth not configured/, code)
   end
 end

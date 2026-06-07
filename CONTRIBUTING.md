@@ -27,7 +27,7 @@ The compiler is a small pipeline of focused modules under `lib/aura/` (loaded by
 ## ⚖️ Standards
 - **Declarative First**: Features should aim to simplify complex ML tasks into simple, readable keywords.
 - **Production Grade**: Generated code should be class-based and follow Ruby best practices (e.g., using subclassing instead of dynamic evaluation where possible).
-- **No Toys**: We do not use mock libraries or stubs for core functionality. Contributions should rely on real `torch-rb` and `sinatra` primitives.
+- **No Toys**: The framework's runtime relies on real `torch-rb` and `sinatra` primitives — core functionality is never mocked. (The test suite may stub LibTorch so the grammar/transpiler/route tests can run without a native build or GPU.)
 
 ## 📬 Submitting Changes
 - Open a Pull Request with a clear description of the feature or bug fix.

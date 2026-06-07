@@ -4,6 +4,35 @@ All notable changes to Aura are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and the project aims to follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.2.2]
+
+### Fixed
+- **Inference now works for CNN models.** Routes reshape the JSON payload to the
+  model's input dims via `aura_input_tensor` and run under `eval` + `no_grad`,
+  instead of passing a bare array straight into a Conv2d (which crashed).
+- **LR schedulers get correct constructor arguments** per type (`StepLR`,
+  `ExponentialLR` → `gamma`, `CosineAnnealingLR` → `t_max`) instead of a
+  hard-coded `step_size:`.
+- **Route paths and HTTP verbs are validated/escaped** — paths are emitted via
+  `inspect` (no broken Ruby on a `'` in the path); unknown verbs are rejected at
+  compile time.
+
+### Added / changed
+- **Training is separated from serving.** Training and evaluation only run in
+  training mode (`aura train <file>`, i.e. `AURA_TRAIN=1`); `aura run` loads
+  weights and serves without retraining on every boot.
+- **Unknown LLM providers are rejected** at compile time (previously any provider
+  silently became OpenAI). Supported: `openai`, `ollama`.
+- **Hardened LLM clients** — connection/read timeouts, non-2xx handling, and
+  rescue around the request.
+- **Hardened auth** — constant-time bearer-token comparison
+  (`Rack::Utils.secure_compare`) and an explicit refusal when `AURA_API_TOKEN`
+  is unset.
+- **`environment device`** is honored: `device :cpu` forces CPU; otherwise the
+  app auto-selects CUDA when available.
+- New `aura train` CLI command; expanded runtime tests now execute the training
+  loop (stubbed Torch) and assert training is skipped while serving.
+
 ## [1.2.1]
 
 ### Fixed

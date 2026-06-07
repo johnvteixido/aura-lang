@@ -44,7 +44,9 @@ class TestAuraFramework < Minitest::Test
     AURA
     
     ruby_code = Aura.transpile(source)
-    assert_match(/post '\/api' do/, ruby_code)
-    assert_match(/m_model\.call\(Torch\.tensor\(input\)\)/, ruby_code)
+    assert_match(/post "\/api" do/, ruby_code)
+    assert_match(/input = payload\["data"\]/, ruby_code)
+    assert_match(/aura_input_tensor\(input,/, ruby_code)
+    assert_match(/m_model\.call\(tensor\)/, ruby_code)
   end
 end

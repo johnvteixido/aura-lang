@@ -6,7 +6,7 @@ Gem::Specification.new do |s|
   s.summary     = "Aura: The Declarative AI Web Framework"
   s.description = "A professional-grade framework for building AI pipelines and AI-integrated web apps with Ruby and Torch."
   s.authors     = ["John V Teixido"]
-  s.email       = "johnvteixido@github.com"
+  s.email       = "johnvteixido@users.noreply.github.com"
   s.files       = Dir["{bin,lib,examples}/**/*", "README.md", "CHANGELOG.md", "LICENSE", "Rakefile", "aura-lang.gemspec"]
   s.homepage    = "https://rootspace.app"
   s.license     = "MIT"

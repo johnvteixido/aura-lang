@@ -1,4 +1,4 @@
-# 🌟 Aura: The Advanced AI Web Framework (v1.2.1)
+# 🌟 Aura: The Advanced AI Web Framework (v1.2.2)
 
 **A [RootSpace.app](https://rootspace.app) Product**  
 **Founded and Developed by [John V. Teixido](https://github.com/johnvteixido)**
@@ -31,7 +31,7 @@ If you are developing Aura or want to use the latest unreleased version:
 git clone https://github.com/johnvteixido/aura-lang
 cd aura-lang
 gem build aura-lang.gemspec
-gem install ./aura-lang-1.2.1.gem
+gem install ./aura-lang-1.2.2.gem
 ```
 
 ## 🧠 Example: Transfer Learning Image API
@@ -73,11 +73,16 @@ run web on port: 8080
 
 ## 🏗️ Commands
 - `aura init <name>`: Scaffold a new production project.
-- `aura run <file>`: Start your application.
+- `aura train <file>`: Train the models, persist weights, then exit.
+- `aura run <file>`: Serve the app (loads saved weights; does **not** retrain).
 - `aura check <file>`: Transpile and preview the generated Ruby.
 - `aura build <file>`: Export to standalone Ruby.
 - `aura deploy <file>`: Generate a production `Dockerfile` (add `--target vercel` for LLM-only apps).
 - `aura console`: Interactive debugging with app context.
+
+> Training and serving are separate: `aura train` runs the `train`/`evaluate`
+> blocks and saves weights; `aura run` loads those weights and serves, so the
+> server never retrains on boot.
 
 ## 🚢 Deployment
 - **Torch apps** (neural networks, transfer learning, training) run on a

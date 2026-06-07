@@ -109,4 +109,35 @@ class TestDiagnostics < Minitest::Test
     AURA
     assert_silent { Aura.transpile(source) }
   end
+
+  def test_unknown_llm_provider_raises_semantic_error
+    source = <<~AURA
+      model bot from anthropic "claude-3"
+
+      route "/c" post do
+        output prediction from bot.predict(message)
+      end
+
+      run web on port: 3000
+    AURA
+    error = assert_raises(Aura::SemanticError) { Aura.transpile(source) }
+    assert_match(/anthropic/, error.message)
+  end
+
+  def test_unsupported_http_verb_raises_semantic_error
+    source = <<~AURA
+      model m neural_network do
+        input shape(10)
+        output units: 2, activation: :softmax
+      end
+
+      route "/x" fetch do
+        output prediction from m.predict(input)
+      end
+
+      run web on port: 3000
+    AURA
+    error = assert_raises(Aura::SemanticError) { Aura.transpile(source) }
+    assert_match(/fetch/, error.message)
+  end
 end
