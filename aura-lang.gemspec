@@ -16,7 +16,7 @@ Gem::Specification.new do |s|
   # Core dependencies needed to parse, transpile, and serve Aura apps.
   s.add_dependency "parslet", "~> 2.0"
   s.add_dependency "sinatra", "~> 4.2"
-  s.add_dependency "puma", "~> 7.2"
+  s.add_dependency "puma", ">= 7.2", "< 9.0"
   s.add_dependency "json", "~> 2.7"
   s.add_dependency "red-datasets", "~> 0.1"
   s.add_dependency "dotenv", "~> 3.1"

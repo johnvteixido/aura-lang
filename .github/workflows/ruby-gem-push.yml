@@ -36,7 +36,7 @@ jobs:
       # key. Requires a one-time Trusted Publisher setup on rubygems.org for this
       # gem. No RUBYGEMS_API_KEY secret needed.
       - name: Configure RubyGems credentials (Trusted Publishing)
-        uses: rubygems/configure-rubygems-credentials@main
+        uses: rubygems/configure-rubygems-credentials@762a4b77c3300434bb57c7ce80b20e36231927aa # v2.0.0
 
       - name: Publish to RubyGems
         run: gem push *.gem
