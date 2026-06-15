@@ -75,7 +75,10 @@ module Aura
       if torch?
         @e.line %(begin; require "torch"; rescue LoadError; end)
         @e.line %(begin; require "torchvision"; rescue LoadError; end) if transfer?
-        @e.line %(begin; require "datasets"; rescue LoadError; end) if needs_dataset?
+        if needs_dataset?
+          @e.line %(begin; require "datasets"; rescue LoadError; end)
+          @e.line %(require "csv")
+        end
         if environment_device == :cpu
           @e.line %(DEVICE = "cpu")
         else
@@ -138,6 +141,17 @@ module Aura
     def emit_dataset_helper
       @e.block("def aura_each_batch(name, batch_size: 32, reshape: nil)") do
         @e.line "return enum_for(:aura_each_batch, name, batch_size: batch_size, reshape: reshape) unless block_given?"
+        @e.comment "CSV: last column is the label, the rest are float features."
+        @e.block("if name.to_s =~ /\\.csv\\z/i") do
+          @e.line "rows = CSV.read(name.to_s)"
+          @e.line "rows.shift if rows.first && rows.first.any? { |c| c.to_s =~ /[A-Za-z]/ }"
+          @e.block("rows.each_slice(batch_size) do |slice|") do
+            @e.line "xs = slice.map { |r| r[0..-2].map(&:to_f) }"
+            @e.line "ys = slice.map { |r| r[-1].to_i }"
+            @e.line "yield aura_batch_tensors(xs, ys, reshape)"
+          end
+          @e.line "return"
+        end
         @e.line %(type = name.to_s.include?("test") ? :test : :train)
         @e.block("source = case name.to_s") do
           @e.line "when /fashion/i then Datasets::FashionMNIST.new(type: type)"
@@ -244,6 +258,7 @@ module Aura
         case layer[:type]
         when :conv2d
           iv = "@conv#{counts[:conv] += 1}"
+          channels ||= 1 # no `input shape` declared -> assume 1 channel (keeps Ruby valid)
           pad = (layer[:kernel] - 1) / 2
           init << "#{iv} = Torch::NN::Conv2d.new(#{channels}, #{layer[:filters]}, #{layer[:kernel]}, padding: #{pad})"
           fwd  << "x = Torch::NN::F.relu(#{iv}.call(x))"
@@ -268,6 +283,20 @@ module Aura
           iv = "@drop#{counts[:drop] += 1}"
           init << "#{iv} = Torch::NN::Dropout.new(p: #{layer[:rate]})"
           fwd  << "x = #{iv}.call(x)"
+        when :embedding
+          iv = "@emb#{counts[:emb] += 1}"
+          init << "#{iv} = Torch::NN::Embedding.new(#{layer[:vocab]}, #{layer[:dim]})"
+          fwd  << "x = #{iv}.call(x)"
+          flat = layer[:dim]
+          spatial = false
+        when :lstm, :gru
+          klass = layer[:type] == :lstm ? "LSTM" : "GRU"
+          iv = "@rnn#{counts[:rnn] += 1}"
+          init << "#{iv} = Torch::NN::#{klass}.new(#{flat || 1}, #{layer[:units]}, batch_first: true)"
+          fwd  << "x, _ = #{iv}.call(x)"
+          fwd  << "x = x[0.., -1, 0..] # last timestep (best-effort; verify vs torch-rb)"
+          flat = layer[:units]
+          spatial = false
         when :dense
           flatten.call
           iv = "@fc#{counts[:fc] += 1}"
@@ -303,7 +332,7 @@ module Aura
       @e.block("class #{cls} < Torch::NN::Module") do
         @e.block("def initialize") do
           @e.line "super"
-          @e.line "@base = Torchvision::Models.#{node[:base_model]}(pretrained: true)"
+          @e.line "@base = TorchVision::Models.#{node[:base_model]}(pretrained: true)"
           if unfreeze
             @e.line "@base.parameters.each { |p| p.requires_grad = true }"
           elsif freeze
@@ -349,8 +378,15 @@ module Aura
         @e.line "request = Net::HTTP::Post.new(uri)"
         @e.line %(request["Content-Type"] = "application/json")
         @e.line %(request["Authorization"] = "Bearer #{'#{api_key}'}")
-        @e.line "request.body = { model: #{node[:model_id].inspect}, " \
-                "messages: [{ role: \"user\", content: prompt }] }.to_json"
+        if node[:system]
+          @e.line "messages = [{ role: \"system\", content: #{node[:system].inspect} }, { role: \"user\", content: prompt }]"
+        else
+          @e.line "messages = [{ role: \"user\", content: prompt }]"
+        end
+        parts = ["model: #{node[:model_id].inspect}", "messages: messages"]
+        parts << "temperature: #{node[:temperature]}" if node[:temperature]
+        parts << "max_tokens: #{node[:max_tokens]}" if node[:max_tokens]
+        @e.line "request.body = { #{parts.join(', ')} }.to_json"
         @e.line "response = http.request(request)"
         @e.line %(return { error: "upstream " + response.code.to_s } unless response.is_a?(Net::HTTPSuccess))
         @e.line %(JSON.parse(response.body).dig("choices", 0, "message", "content"))
@@ -367,7 +403,13 @@ module Aura
         @e.line "http.read_timeout = 120"
         @e.line "request = Net::HTTP::Post.new(uri)"
         @e.line %(request["Content-Type"] = "application/json")
-        @e.line "request.body = { model: #{node[:model_id].inspect}, prompt: prompt, stream: false }.to_json"
+        parts = ["model: #{node[:model_id].inspect}", "prompt: prompt", "stream: false"]
+        parts << "system: #{node[:system].inspect}" if node[:system]
+        opts = []
+        opts << "temperature: #{node[:temperature]}" if node[:temperature]
+        opts << "num_predict: #{node[:max_tokens]}" if node[:max_tokens]
+        parts << "options: { #{opts.join(', ')} }" unless opts.empty?
+        @e.line "request.body = { #{parts.join(', ')} }.to_json"
         @e.line "response = http.request(request)"
         @e.line %(return { error: "upstream " + response.code.to_s } unless response.is_a?(Net::HTTPSuccess))
         @e.line %(JSON.parse(response.body)["response"])
@@ -505,7 +547,7 @@ module Aura
       @e.block("#{verb} #{node[:path].inspect} do") do
         emit_auth if node[:auth]
         @e.line "content_type :json" if node[:format] == :json || node[:format].nil?
-        emit_route_body(model, node[:input_var])
+        emit_route_body(model, node[:input_var], node[:postprocess])
       end
       @e.blank
     end
@@ -522,7 +564,7 @@ module Aura
 
     # `input_var` is the variable named in the DSL's `model.predict(<var>)`, used
     # as the JSON key the handler reads the request payload from.
-    def emit_route_body(model, input_var)
+    def emit_route_body(model, input_var, post_process = nil)
       key  = (input_var || "input").to_s
       kind = model && model[:kind]
       case kind
@@ -535,12 +577,23 @@ module Aura
       when :torch, :transfer
         @e.line "payload = JSON.parse(request.body.read) rescue {}"
         @e.line "input = payload[#{key.inspect}]"
-        @e.line "tensor = aura_input_tensor(input, #{input_reshape(model).inspect})"
-        @e.block("result = Torch.no_grad do") do
-          @e.line "#{model[:name]}_model.eval"
-          @e.line "#{model[:name]}_model.call(tensor)"
+        @e.line %(halt 400, { error: "missing '#{key}' in request body" }.to_json if input.nil?)
+        @e.line "begin"
+        @e.indent do
+          @e.line "tensor = aura_input_tensor(input, #{input_reshape(model).inspect})"
+          @e.block("result = Torch.no_grad do") do
+            @e.line "#{model[:name]}_model.eval"
+            @e.line "#{model[:name]}_model.call(tensor)"
+          end
+          if post_process == :label
+            @e.line "{ label: result.argmax(1).to_a }.to_json"
+          else
+            @e.line "{ prediction: result.to_a }.to_json"
+          end
         end
-        @e.line "{ prediction: result.to_a }.to_json"
+        @e.line "rescue => e"
+        @e.indent { @e.line %(halt 500, { error: e.message }.to_json) }
+        @e.line "end"
       else
         @e.line "{ status: \"ok\" }.to_json"
       end
@@ -551,6 +604,14 @@ module Aura
     # otherwise `set :run, true` boots the server (classic Sinatra starts at exit
     # even when loaded via eval/require).
     def emit_run_web(node)
+      unless @nodes.any? { |n| n[:type] == :route && n[:path] == "/health" }
+        @e.comment "Auto health check."
+        @e.block(%(get "/health" do)) do
+          @e.line "content_type :json"
+          @e.line %({ status: "ok" }.to_json)
+        end
+        @e.blank
+      end
       @e.comment "Serve unless we're in training mode (then train and exit)."
       @e.line "set :port, #{node[:port]}"
       @e.line %(set :bind, "0.0.0.0")

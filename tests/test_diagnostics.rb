@@ -140,4 +140,28 @@ class TestDiagnostics < Minitest::Test
     error = assert_raises(Aura::SemanticError) { Aura.transpile(source) }
     assert_match(/fetch/, error.message)
   end
+
+  def test_training_a_non_torch_model_raises_semantic_error
+    [
+      %Q{model b from openai "x"\n\ntrain b on "d" do\n  epochs 1\nend\n},
+      %Q{model g neural_network do\n  input text\n  output greeting "hi"\nend\n\nevaluate g on "d"\n}
+    ].each do |source|
+      error = assert_raises(Aura::SemanticError) { Aura.transpile(source) }
+      assert_match(/Only neural_network and transfer/, error.message)
+    end
+  end
+
+  def test_multiple_environment_blocks_raise_semantic_error
+    source = <<~AURA
+      environment a do
+        device :cpu
+      end
+
+      environment b do
+        device :cuda
+      end
+    AURA
+    error = assert_raises(Aura::SemanticError) { Aura.transpile(source) }
+    assert_match(/environment/, error.message)
+  end
 end

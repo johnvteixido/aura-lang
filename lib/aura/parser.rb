@@ -77,18 +77,40 @@ module Aura
     rule(:model_stmt) do
       str("model") >> sp1 >> identifier.as(:model_name) >> sp1 >> (
         (str("neural_network") >> sp1 >> block_body(model_line, :nn_body)) |
-        (str("from") >> sp1 >> identifier.as(:provider) >> sp1 >> string.as(:model_id)) |
+        (str("from") >> sp1 >> identifier.as(:provider) >> sp1 >> string.as(:model_id) >>
+          (sp1 >> block_body(llm_option, :llm_body)).maybe) |
         (str("transfer") >> sp1 >> str("from") >> sp1 >> symbol.as(:base_model) >>
           (sp1 >> block_body(model_line, :nn_body)).maybe)
+      ) >> eol
+    end
+
+    # Optional config inside `model x from openai "id" do ... end`.
+    rule(:llm_option) do
+      sp >> (str("end") >> eol).absent? >> (
+        (str("system") >> sp1 >> string.as(:llm_system)) |
+        (str("temperature") >> sp1 >> number.as(:llm_temperature)) |
+        (str("max_tokens") >> sp1 >> number.as(:llm_max_tokens))
       ) >> eol
     end
 
     rule(:model_line) do
       sp >> (
         m_input_shape | m_input_text | m_conv | m_maxpool | m_batchnorm |
-        m_flatten | m_dense | m_dropout | m_output | m_greeting |
-        m_load | m_save | m_freeze | m_unfreeze
+        m_flatten | m_embedding | m_lstm | m_gru | m_dense | m_dropout |
+        m_output | m_greeting | m_load | m_save | m_freeze | m_unfreeze
       ) >> eol
+    end
+
+    rule(:m_embedding) do
+      str("layer") >> sp1 >> str("embedding") >> sp1 >>
+        str("vocab:") >> sp1 >> number.as(:embed_vocab) >> comma >>
+        str("dim:") >> sp1 >> number.as(:embed_dim)
+    end
+    rule(:m_lstm) do
+      str("layer") >> sp1 >> str("lstm") >> sp1 >> str("units:") >> sp1 >> number.as(:lstm_units)
+    end
+    rule(:m_gru) do
+      str("layer") >> sp1 >> str("gru") >> sp1 >> str("units:") >> sp1 >> number.as(:gru_units)
     end
 
     rule(:m_input_shape) do
@@ -173,6 +195,7 @@ module Aura
     rule(:route_output) do
       str("output prediction from") >> sp1 >> identifier.as(:route_model) >>
         str(".predict(") >> identifier.as(:route_input) >> str(")") >>
+        (sp1 >> str("as") >> sp1 >> symbol.as(:route_as)).maybe >>
         (sp1 >> str("format") >> sp1 >> symbol.as(:route_format)).maybe
     end
     rule(:route_auth) do

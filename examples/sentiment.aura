@@ -1,0 +1,13 @@
+# Sentiment classifier: embedding -> LSTM -> 2-class output.
+model sentiment neural_network do
+  layer embedding vocab: 20000, dim: 128
+  layer lstm units: 256
+  layer dropout rate: 0.3
+  output units: 2, activation: :softmax
+end
+
+route "/sentiment" post do
+  output prediction from sentiment.predict(tokens) as :label format :json
+end
+
+run web on port: 3000

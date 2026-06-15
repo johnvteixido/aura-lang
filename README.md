@@ -1,4 +1,4 @@
-# 🌟 Aura: The Advanced AI Web Framework (v1.2.2)
+# 🌟 Aura: The Advanced AI Web Framework (v1.3.0)
 
 **A [RootSpace.app](https://rootspace.app) Product**  
 **Founded and Developed by [John V. Teixido](https://github.com/johnvteixido)**
@@ -9,11 +9,20 @@
 Aura is a **professional-grade AI Web Framework** that allows you to build, train, and deploy advanced AI models in a single declarative file. By combining **Torch-rb**, **Torchvision**, and **Sinatra**, Aura bridges the gap between deep learning research and production web services.
 
 ## 🚀 Key Features
-- **Transfer Learning (New)**: Bootstrap your models with pre-trained architectures (ResNet, BERT, etc.) using `transfer from :model_name`.
-- **Advanced Training**: Declarative Learning Rate Schedulers (`StepLR`, `ExponentialLR`) and Optimizer configurations.
-- **Model Persistence**: Native `save` and `load` primitives for model weights.
-- **Production Infrastructure**: Transpiles to class-based Ruby using `Torch::NN::Module` subclassing and Puma for high-performance serving.
-- **Seamless Deployment**: Generate production-ready Dockerfiles with `aura deploy`.
+- **Layers**: `conv2d`, `maxpool2d`, `batchnorm`, `dropout`, `dense`, plus
+  sequence layers `embedding`, `lstm`, and `gru`.
+- **Transfer Learning**: Bootstrap with pre-trained architectures (ResNet, etc.)
+  via `transfer from :model_name`, with `freeze`/`unfreeze` and a new head.
+- **Advanced Training**: Declarative LR schedulers (`StepLR`, `ExponentialLR`,
+  `CosineAnnealingLR`), optimizers, metrics, and a `train`/`serve` split.
+- **Datasets**: built-in MNIST / Fashion-MNIST / CIFAR loaders, plus **CSV**
+  (`train m on "data.csv"`).
+- **LLMs**: `from openai` / `from ollama` with a config block (`system`,
+  `temperature`, `max_tokens`).
+- **Serving**: typed JSON routes, bearer-token auth, `predict(...) as :label`
+  post-processing, and an automatic `/health` endpoint.
+- **Model Persistence**: native `save` / `load` weight primitives.
+- **Deployment**: type-aware Dockerfiles and a Vercel target (`aura deploy`).
 
 ## 🛠️ Installation
 ```bash
@@ -31,7 +40,7 @@ If you are developing Aura or want to use the latest unreleased version:
 git clone https://github.com/johnvteixido/aura-lang
 cd aura-lang
 gem build aura-lang.gemspec
-gem install ./aura-lang-1.2.2.gem
+gem install ./aura-lang-1.3.0.gem
 ```
 
 ## 🧠 Example: Transfer Learning Image API
@@ -97,14 +106,15 @@ run web on port: 8080
 - [x] CNN & Convolutional Layers
 - [x] Model Persistence (v1.1)
 - [x] Transfer Learning & Schedulers (v1.2)
-- [ ] Distributed Training (v1.3)
-- [ ] Native RAG (Retrieval Augmented Generation) Primitives (v1.4)
+- [x] Sequence layers (Embedding/LSTM/GRU), LLM config, CSV datasets (v1.3)
+- [ ] Distributed Training (v1.4)
+- [ ] Native RAG (Retrieval Augmented Generation) Primitives (v1.5)
 
 ## ☕ Support Aura Development
 Aura is an open-source project by RootSpace.app. If you find the framework useful, please consider supporting its development.
 
 **[Support Aura on Stripe (Choose what you pay)](https://donate.stripe.com/9B66oH2hHbci9ZNd5jc7u00)**  
-*All donations go directly towards maintaining the infrastructure and developing new features like v1.3 Distributed Training.*
+*All donations go directly towards maintaining the infrastructure and developing new features like v1.4 Distributed Training.*
 
 ## 📜 License
 MIT

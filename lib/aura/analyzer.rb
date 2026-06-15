@@ -17,18 +17,28 @@ module Aura
       @nodes = nodes
     end
 
+    TRAINABLE_KINDS = %i[torch transfer].freeze
+
     def analyze
-      defined_models = @nodes.select { |n| n[:type] == :model }.map { |n| n[:name] }
+      models         = @nodes.select { |n| n[:type] == :model }
+      defined_models = models.map { |n| n[:name] }
+      kinds          = models.each_with_object({}) { |n, h| h[n[:name]] = n[:kind] }
       check_unique_models!(defined_models)
       check_unique_routes!
+      check_unique_environment!
       check_providers!
       check_http_verbs!
 
       @nodes.each do |node|
         case node[:type]
-        when :train    then require_model!(defined_models, node[:model], "train")
-        when :evaluate then require_model!(defined_models, node[:model], "evaluate")
-        when :route    then require_model!(defined_models, node[:model], "route #{node[:path]}") if node[:model]
+        when :train
+          require_model!(defined_models, node[:model], "train")
+          require_trainable!(kinds, node[:model], "train")
+        when :evaluate
+          require_model!(defined_models, node[:model], "evaluate")
+          require_trainable!(kinds, node[:model], "evaluate")
+        when :route
+          require_model!(defined_models, node[:model], "route #{node[:path]}") if node[:model]
         end
       end
 
@@ -36,6 +46,26 @@ module Aura
     end
 
     private
+
+    # Only neural-network / transfer models have a trainable `<name>_model`;
+    # training an LLM or text model would emit `<name>_model.train` -> NameError.
+    def require_trainable!(kinds, name, context)
+      kind = kinds[name]
+      return if kind.nil? || TRAINABLE_KINDS.include?(kind)
+
+      raise SemanticError,
+            "Cannot #{context} model '#{name}' (kind: #{kind}). Only neural_network and " \
+            "transfer models can be trained/evaluated."
+    end
+
+    # A single `environment` block is generated into one `AuraConfig`; multiple
+    # blocks would redefine the same class/constant.
+    def check_unique_environment!
+      envs = @nodes.count { |n| n[:type] == :environment }
+      return if envs <= 1
+
+      raise SemanticError, "Multiple `environment` blocks found (#{envs}); declare at most one."
+    end
 
     # LLM models compile to a provider-specific HTTP client; an unknown provider
     # would otherwise be silently treated as OpenAI.

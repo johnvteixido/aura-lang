@@ -35,6 +35,13 @@ module Aura
       { type: :model, kind: :transfer, name: name.to_s, base_model: base, layers: clean(body) }
     end
 
+    def llm(name, provider, model_id, body)
+      cfg = clean(body).each_with_object({}) { |h, acc| acc.merge!(h) }
+      { type: :model, kind: :llm, name: name.to_s, provider: provider.to_s.to_sym,
+        model_id: model_id.to_s, system: cfg[:system],
+        temperature: cfg[:temperature], max_tokens: cfg[:max_tokens] }
+    end
+
     def train(model, dataset, body)
       config = clean(body).each_with_object({}) { |opt, h| h.merge!(opt) }
       { type: :train, model: model.to_s, dataset: dataset.to_s, config: config }
@@ -45,10 +52,11 @@ module Aura
       out   = lines.find { |l| l.key?(:route_model) }
       auth  = lines.find { |l| l.key?(:auth) }
       { type: :route, path: path.to_s, method: method.to_s,
-        model:     out && out[:route_model],
-        input_var: (out && out[:route_input]) || "input",
-        format:    out && out[:route_format],
-        auth:      auth && auth[:auth] }
+        model:       out && out[:route_model],
+        input_var:   (out && out[:route_input]) || "input",
+        format:      out && out[:route_format],
+        postprocess: out && out[:route_as],
+        auth:        auth && auth[:auth] }
     end
 
     def settings(body)
@@ -101,8 +109,18 @@ module Aura
     rule(load_path: simple(:p))    { { type: :load_weights, path: p.to_s } }
     rule(freeze_until: simple(:l))  { { type: :freeze, until: l } }
     rule(unfreeze_all: simple(:_x)) { { type: :unfreeze_all } }
+    rule(embed_vocab: simple(:v), embed_dim: simple(:d)) { { type: :embedding, vocab: v.to_i, dim: d.to_i } }
+    rule(lstm_units: simple(:u)) { { type: :lstm, units: u.to_i } }
+    rule(gru_units: simple(:u))  { { type: :gru, units: u.to_i } }
+
+    # ---- LLM config body lines -----------------------------------------------
+    rule(llm_system: simple(:s))     { { system: s.to_s } }
+    rule(llm_temperature: simple(:t)) { { temperature: t } }
+    rule(llm_max_tokens: simple(:m))  { { max_tokens: m.to_i } }
 
     # ---- route body lines ----------------------------------------------------
+    rule(route_model: simple(:m), route_input: simple(:i), route_as: simple(:a), route_format: simple(:f)) { { route_model: m.to_s, route_input: i.to_s, route_as: a, route_format: f } }
+    rule(route_model: simple(:m), route_input: simple(:i), route_as: simple(:a)) { { route_model: m.to_s, route_input: i.to_s, route_as: a, route_format: nil } }
     rule(route_model: simple(:m), route_input: simple(:i), route_format: simple(:f)) { { route_model: m.to_s, route_input: i.to_s, route_format: f } }
     rule(route_model: simple(:m), route_input: simple(:i)) { { route_model: m.to_s, route_input: i.to_s, route_format: nil } }
     rule(auth: simple(:a)) { { auth: a } }
@@ -118,7 +136,8 @@ module Aura
     rule(env_name: simple(:n), env_body: subtree(:b)) { { type: :environment, name: n.to_s, settings: Aura::Nodes.settings(b) } }
 
     rule(model_name: simple(:n), nn_body: subtree(:b)) { Aura::Nodes.model(n, b) }
-    rule(model_name: simple(:n), provider: simple(:pr), model_id: simple(:mid)) { { type: :model, kind: :llm, name: n.to_s, provider: pr.to_s.to_sym, model_id: mid.to_s } }
+    rule(model_name: simple(:n), provider: simple(:pr), model_id: simple(:mid)) { Aura::Nodes.llm(n, pr, mid, []) }
+    rule(model_name: simple(:n), provider: simple(:pr), model_id: simple(:mid), llm_body: subtree(:b)) { Aura::Nodes.llm(n, pr, mid, b) }
     rule(model_name: simple(:n), base_model: simple(:bm)) { { type: :model, kind: :transfer, name: n.to_s, base_model: bm, layers: [] } }
     rule(model_name: simple(:n), base_model: simple(:bm), nn_body: subtree(:b)) { Aura::Nodes.transfer(n, bm, b) }
 

@@ -48,12 +48,18 @@ class TestRuntime < Minitest::Test
           def self.method_missing(*); FakeTensor.new; end
           def self.respond_to_missing?(*); true; end
         end
-        %i[Linear Conv2d MaxPool2d BatchNorm1d BatchNorm2d Dropout].each do |layer|
+        %i[Linear Conv2d MaxPool2d BatchNorm1d BatchNorm2d Dropout Embedding].each do |layer|
           const_set(layer, Class.new do
             def initialize(*); end
             def call(*); FakeTensor.new; end
             def to(*); self; end
             def parameters; []; end
+          end)
+        end
+        %i[LSTM GRU].each do |rnn|
+          const_set(rnn, Class.new do
+            def initialize(*); end
+            def call(*); [FakeTensor.new, nil]; end # (output, hidden)
           end)
         end
         %i[CrossEntropyLoss MSELoss BCELoss BCEWithLogitsLoss NLLLoss].each do |loss|
@@ -286,5 +292,106 @@ class TestRuntime < Minitest::Test
     AURA
     assert_match(/Torch::CUDA\.available\?/, code)
     refute_match(/Torch\.cuda_available\?/, code)
+  end
+
+  # Sequence model: embedding -> LSTM -> output runs end to end (the stub RNN
+  # returns the (output, hidden) pair so `out, _ = rnn.call(x)` destructures).
+  def test_sequence_model_route_runs
+    source = <<~AURA
+      model seq neural_network do
+        layer embedding vocab: 1000, dim: 32
+        layer lstm units: 64
+        output units: 2, activation: :softmax
+      end
+
+      route "/seq" post do
+        output prediction from seq.predict(tokens)
+      end
+
+      run web on port: 3000
+    AURA
+    driver = MOCK_HEAD + <<~'RUBY'
+      res = Rack::MockRequest.new(Sinatra::Application)
+                             .post("/seq", input: '{"tokens":[[1,2,3]]}', "CONTENT_TYPE" => "application/json")
+      puts "STATUS:#{res.status}"
+      puts "BODY:#{res.body}"
+    RUBY
+    out, err, status = run_generated(source, driver)
+    assert status.success?, "sequence model app should run. stderr:\n#{err}"
+    assert_match(/STATUS:200/, out)
+    assert_match(/"prediction"/, out)
+  end
+
+  # `as :label` returns class indices instead of raw logits.
+  def test_as_label_route_returns_label
+    source = <<~AURA
+      model clf neural_network do
+        input shape(4)
+        output units: 3, activation: :softmax
+      end
+
+      route "/p" post do
+        output prediction from clf.predict(x) as :label
+      end
+
+      run web on port: 3000
+    AURA
+    driver = MOCK_HEAD + <<~'RUBY'
+      res = Rack::MockRequest.new(Sinatra::Application)
+                             .post("/p", input: '{"x":[[1,2,3,4]]}', "CONTENT_TYPE" => "application/json")
+      puts "BODY:#{res.body}"
+    RUBY
+    out, err, status = run_generated(source, driver)
+    assert status.success?, err
+    assert_match(/"label"/, out)
+  end
+
+  # Auto /health endpoint responds even though it isn't declared in the DSL.
+  def test_health_endpoint_responds
+    source = <<~AURA
+      model greeter neural_network do
+        input text
+        output greeting "hi"
+      end
+
+      route "/hello" get do
+        output prediction from greeter.predict(input)
+      end
+
+      run web on port: 3000
+    AURA
+    driver = MOCK_HEAD + <<~'RUBY'
+      res = Rack::MockRequest.new(Sinatra::Application).get("/health")
+      puts "STATUS:#{res.status}"
+      puts "BODY:#{res.body}"
+    RUBY
+    out, _err, status = run_generated(source, driver)
+    assert status.success?
+    assert_match(/STATUS:200/, out)
+    assert_match(/"status":"ok"/, out)
+  end
+
+  # CSV training executes: reads a real CSV and runs the loop in train mode.
+  def test_csv_training_runs
+    csv = Tempfile.new(["data", ".csv"])
+    csv.write("f1,f2,f3,f4,label\n5.1,3.5,1.4,0.2,0\n4.9,3.0,1.4,0.2,0\n6.2,3.4,5.4,2.3,2\n5.9,3.0,5.1,1.8,2\n")
+    csv.close
+    source = <<~AURA
+      model iris neural_network do
+        input shape(4)
+        output units: 3, activation: :softmax
+      end
+
+      train iris on "#{csv.path}" do
+        epochs 1
+        batch_size 2
+      end
+
+      run web on port: 3000
+    AURA
+    out, err, status = run_generated(source, "", extra_env: { "AURA_TRAIN" => "1" })
+    csv.unlink
+    assert status.success?, "CSV training should run. stderr:\n#{err}"
+    assert_match(%r{Epoch 1/1}, out)
   end
 end

@@ -220,7 +220,7 @@ class TestTranspiler < Minitest::Test
       end
     AURA
     code = Aura.transpile(source)
-    assert_match(/Torchvision::Models\.resnet18\(pretrained: true\)/, code)
+    assert_match(/TorchVision::Models\.resnet18\(pretrained: true\)/, code)
     assert_match(/requires_grad = false/, code)
     assert_match(/@head = Torch::NN::Linear\.new\(1000, 10\)/, code)
     assert_match(/Torch::NN::F\.softmax\(@head\.call\(x\), dim: 1\)/, code)
@@ -358,5 +358,100 @@ class TestTranspiler < Minitest::Test
     AURA
     assert_match(/Rack::Utils\.secure_compare/, code)
     assert_match(/auth not configured/, code)
+  end
+
+  # v1.3.0 ----------------------------------------------------------------
+
+  # A conv model without an explicit `input shape` still compiles (channels
+  # defaulted instead of emitting `Conv2d.new(, …)`).
+  def test_conv_without_input_shape_compiles
+    code = Aura.transpile(<<~AURA)
+      model x neural_network do
+        layer conv2d filters: 16, kernel: 3
+        layer flatten
+        output units: 10, activation: :softmax
+      end
+    AURA
+    assert RubyVM::InstructionSequence.compile(code), "conv-without-input must compile"
+    assert_match(/Torch::NN::Conv2d\.new\(1, 16, 3/, code)
+  end
+
+  # Sequence layers emit the right Torch classes.
+  def test_sequence_layers_emit_classes
+    code = Aura.transpile(<<~AURA)
+      model seq neural_network do
+        layer embedding vocab: 5000, dim: 64
+        layer lstm units: 128
+        output units: 2, activation: :softmax
+      end
+    AURA
+    assert_match(/Torch::NN::Embedding\.new\(5000, 64\)/, code)
+    assert_match(/Torch::NN::LSTM\.new\(64, 128, batch_first: true\)/, code)
+    assert_match(/Torch::NN::Linear\.new\(128, 2\)/, code) # rnn collapses seq -> 128
+  end
+
+  def test_gru_layer
+    code = Aura.transpile(<<~AURA)
+      model s neural_network do
+        layer embedding vocab: 100, dim: 8
+        layer gru units: 16
+        output units: 2, activation: :softmax
+      end
+    AURA
+    assert_match(/Torch::NN::GRU\.new\(8, 16, batch_first: true\)/, code)
+  end
+
+  # LLM config (system/temperature/max_tokens) is threaded into the request.
+  def test_llm_config_is_threaded
+    code = Aura.transpile(<<~AURA)
+      model bot from openai "gpt-4o" do
+        system "You are terse."
+        temperature 0.2
+        max_tokens 256
+      end
+
+      route "/c" post do
+        output prediction from bot.predict(message)
+      end
+
+      run web on port: 3000
+    AURA
+    assert_match(/role: "system", content: "You are terse\."/, code)
+    assert_match(/temperature: 0\.2/, code)
+    assert_match(/max_tokens: 256/, code)
+  end
+
+  # `as :label` post-processes the output with argmax.
+  def test_as_label_postprocessing
+    code = Aura.transpile(<<~AURA)
+      model m neural_network do
+        input shape(10)
+        output units: 3, activation: :softmax
+      end
+
+      route "/p" post do
+        output prediction from m.predict(x) as :label
+      end
+
+      run web on port: 3000
+    AURA
+    assert_match(/\{ label: result\.argmax\(1\)\.to_a \}/, code)
+  end
+
+  # A /health route is emitted automatically when serving.
+  def test_auto_health_route
+    code = Aura.transpile(<<~AURA)
+      model g neural_network do
+        input text
+        output greeting "hi"
+      end
+
+      route "/x" get do
+        output prediction from g.predict(input)
+      end
+
+      run web on port: 3000
+    AURA
+    assert_match(%r{get "/health" do}, code)
   end
 end

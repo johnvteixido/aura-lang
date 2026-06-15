@@ -4,6 +4,41 @@ All notable changes to Aura are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and the project aims to follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.3.0]
+
+A correctness + feature release driven by a full-project audit.
+
+### Fixed
+- **Conv model without an explicit `input shape` no longer emits uncompilable
+  Ruby** (`Conv2d.new(, …)`); channels default to 1.
+- **`train`/`evaluate` on an LLM or text model is now a compile-time error**
+  (it previously generated `<model>_model.train` → NameError).
+- **Transfer models use the correct module `TorchVision::Models`** (was the
+  non-existent `Torchvision::Models`).
+- **Multiple `environment` blocks are rejected** (they redefined `AuraConfig`).
+- **Torch inference routes guard a missing input key** (`halt 400`) and rescue
+  errors as JSON instead of 500-ing with a stack trace.
+
+### Added
+- **Sequence layers**: `layer embedding vocab:, dim:`, `layer lstm units:`,
+  `layer gru units:` (RNNs take the last timestep). Best-effort — compile/stub
+  verified, validate against your torch-rb.
+- **LLM configuration**: `model x from openai "id" do system "…"; temperature 0.7;
+  max_tokens 500 end`, threaded into the OpenAI/Ollama request.
+- **Output post-processing**: `predict(x) as :label` returns class indices
+  (argmax) instead of raw logits.
+- **Automatic `/health` endpoint** for every served app.
+- **CSV datasets**: `train m on "data.csv"` reads a CSV (last column = label).
+- **Type-aware Dockerfiles**: Torch apps now install `torch-rb torchvision
+  red-datasets` and include LibTorch setup guidance; LLM/text apps stay slim.
+
+### Changed
+- Version bumped to 1.3.0. Suite grew to 65 examples (incl. execution tests for
+  sequence models, CSV training, `/health`, and `as :label`).
+
+> Note: new Torch ops (RNNs, scheduler args, CIFAR loader, the Torch Dockerfile)
+> are compile/stub-verified, not run against LibTorch in CI.
+
 ## [1.2.2]
 
 ### Fixed

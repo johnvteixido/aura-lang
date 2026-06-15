@@ -1,0 +1,12 @@
+# LLM assistant with a system prompt and sampling controls.
+model assistant from openai "gpt-4o" do
+  system "You are a concise, helpful assistant."
+  temperature 0.3
+  max_tokens 512
+end
+
+route "/chat" post do
+  output prediction from assistant.predict(message) format :json
+end
+
+run web on port: 3000
